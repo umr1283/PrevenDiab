@@ -13,6 +13,7 @@ Pour les deux scores, la méthode est présente dans le script 02_PrevenDiab_SCO
 
 ### Score Métabolique
 
+Le calcul du **score Métabolique** se base sur la définition mondiale du syndrome Métabolique de la Fédération internationale du diabète (***the International Diabetes Federation (IDF)***).   
 
 
 ### Score Framingham 
