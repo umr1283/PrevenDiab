@@ -10,6 +10,7 @@ Grâce aux scripts 00 (chargement des différentes bases) et 01 (création de va
 ## Calcul des Scores 
 
 Pour les deux scores, la méthode est présente dans le script 02_PrevenDiab_SCORES_update.rmd
+Le rapport .html a été généré.
 
 ### Score Métabolique
 
