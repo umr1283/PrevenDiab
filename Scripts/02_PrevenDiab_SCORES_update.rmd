@@ -1,0 +1,1021 @@
+---
+title: "Scores - PrevenDIAB (vers. 01.2024)"
+author: "Emma Henriques"
+date: "`r Sys.Date()`"
+knit: (function(inputFile, encoding) {
+  rmarkdown::render(inputFile, encoding = encoding, output_dir = "outputs", output_format = "all") })
+
+output:
+  html_document: 
+    toc: yes
+    toc_depth: 3
+    number_sections: true #to automatically number the sections
+    toc_float: true #to float the table of contents
+    scrollX: true
+
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r packages & project load, include = FALSE}
+
+library(data.table)
+library(here)
+library(dplyr)
+# renv::install("PHP2560-Statistical-Programming-R/r-framingham")
+# library("frisk")
+library(knitr)
+library(DT)
+# library(questionr)
+# library(xtable)
+# options(xtable.comment = FALSE)
+library(stringr)
+# renv::install("Hmisc")
+# library(Hmisc)
+# renv::install("kableExtra")
+library(kableExtra)
+
+library(gtsummary)
+theme_gtsummary_language(language = "fr", decimal.mark = ",", big.mark = " ")
+
+project <- basename(here())
+outputs_directory <- here("outputs")
+
+Population_totale <- FALSE ## --here to dev
+Sous_groupe_Cas_Temoin <- TRUE
+
+
+
+
+```
+
+
+# Chargement des données 
+
+On charge la base de données sur laquelle appliquer les scores (sous-groupe cas/témoins : N=144).   
+
+=> Possibilité de choisir entre la base complète, soit la population totale, et entre la base réduite, soit le sous-groupe cas/témoins.
+
+```{r Data load, include = FALSE}
+
+
+cols_factor <- c("Pers_Majeur", "Exam_prev_sante_IPL", "OK_contraintes", "Consent_study", "Insured_person", "Participate_another_study",
+                 "Deprived_liberty", "Prevention_of_consent", "Inconsistent_scheduling", "State_health_or_treatment_incompatible", "InclusionON",
+                 "Participation", "sexe", "Etat_FM", "ETAT_AR", "DiabConnu", "Med_ON", "AP_covid_ON", "VaccinationCOVID_ON", "AP_Prematurite_ON",
+                 "AP_GrossEnCours_ON", "ATCD_Grossesse", "AP_GrossDG_ON", "AP_OvPoly_ON", "AP_Hyperandrogenie_ON", "AP_Menopause_ON", "AP_HTA_ON",
+                 "AP_IAM_ON", "AP_AVC_ON", "AP_autreMCV_ON", "AP_HyperCHL_ON", "AP_HTGD_ON", "AP_PD_ON", "AP_DC_ON", "AP_DC_ComVas_ON", "AP_DC_ComNeu_ON",
+                 "AP_IRC_ON", "AP_SH_ON", "AP_TI_ON", "AP_TI_Dyspepsie_ON", "AP_TI_Diarrhee_ON", "AP_TI_Constipation_ON", "AP_TI_RG_ON", "AP_DouChron_ON",
+                 "AP_DouChron_Muscu_ON", "AP_DouChron_Arti_ON", "AP_DouChron_Neuro_ON", "AP_DouChron_Migraine_ON", "AP_Apnee_ON", "AP_Apnee_Appareillage_ON",
+                 "AP_DeficitAuditif_ON", "AP_DeficitVisuel_loin", "AP_DeficitVisuel_pres", "V1_ON")
+
+## on prend la table la plus récente.
+if (Population_totale) {
+  Data_PrevenDiab_sc <- data.table::fread(here("outputs", "Data_PrevenDiab_merged_post_01.tsv"), header = TRUE, sep = "\t", colClasses = list(factor = cols_factor))
+}
+if (Sous_groupe_Cas_Temoin) {
+  Data_PrevenDiab_sc <- data.table::fread(here("outputs", "Data_PrevenDiab_merged_post01_sous-groupe_2024-01-29.tsv"), header = TRUE, sep = "\t", colClasses = list(factor = cols_factor))
+}
+
+# str(Data_PrevenDiab_sc)
+
+
+```
+
+
+# Score Métabolique
+
+## Introduction à la préparation des données {.tabset}
+
+sur la base de la définition mondiale du syndrome métabolique de la Fédération internationale du diabète (FID).
+
+Le calcul du **score Métabolique** se base sur la définition mondiale du syndrome Métabolique de la Fédération
+internationale du diabète (***the International Diabetes Federation (IDF)***).   
+
+D'après les critères ATP-III, seulement 3 critères sur les 5 sont requis afin d'être diagnostiqué.   
+
+Plus précisémment, le diagnostique requiert la présence d'un IMC > 30 kg/m2 ou un tour de taille (=1ère condition) supérieur 
+au seuil ethnique, plus 2 des 5 autres critères.   
+
++ tour de taille ≥ à 102 cm (40 Inches) pour les hommes ; ≥ à 88 cm (35 inches) pour les femmes
++ taux de Triglycérides ≥ 150 mg/dL (1.7 mmol/L)
++ HDL < 40 mg/dL (1.03 mmol/L) pour les hommes ; < 50 mg/dL (1.29 mmol/L) pour les femmes
++ Pression artérielle ≥ 130 / 85 mm Hg
++ Glycémie à jeun ≥ 110 mg/dL (5.6 mmol/L)  
+
+
+
+### Calculateur en ligne 
+
+
+Le [calculateur en ligne](https://qxmd.com/calculate/calculator_120/metabolic-syndrome-idf) utilisé par l'IPL utilise les variables suivantes :
+
+<center>
+![](/docs/Images/Metabolic_syndrome_calculator.png)
+</center>
+
+Plus d'informations pour le tour de taille du calculateur : (=> onglet *central obesity*)  
+
+<center>
+![](/docs/Images/metabolic_syndrome_calculator_central_obesity.png)
+</center>
+
+  + Europids, Sub-Saharan Africans, Eastern Mediterranean and Middle East (Arab) populations:
+    + Waist Circumference - Male ≥ 94 cm (37 inches); Female ≥ 80 cm (31 inches)
+  + South Asian, Chinese, Japanese and Ethnic South and Central Americans:
+    + Waist Circumference - Male ≥ 90 cm (35 inches); Female ≥ 80 cm (31 inches)
+
+
+
+
+### Echanges et discussions
+
+Suite aux échanges avec l'IPL, les points retenus sont les suivants :   
+
+  + Pour l'obesité centrale *(Central obesity)*, on considère **l'IMC <ins>ou</ins> le tour de taille**
+    + au moins une des deux informations doit être vraie pour impliquer l'obésité !
+    + pour le tour de taille : prendre en compte l'origine ethnique et/ou la catégorie raciale
+
+
+=> Pour le calcul de ce score, pour déterminer le diagnostique, il est important d'avoir au moins l'obésité centrale comme 1er critère, en
+plus de 2 autres critères (minimum) parmi :
+
+  + le taux de triglycérides,
+  + le taux de cholestérol HDL,
+  + la pression artérielle systolique allongée
+  + le taux de flycémie à jeun
+  + le statut diabétique (type 2) -> <ins>*information à venir*</ins>  
+
+
+<ins>Remarque :</ins> si l'obésité centrale ne fait pas partie des critères, alors il ne peut y avoir de diagnotique établit
+
+
+## Préparation des données {.tabset}
+
+On va donc préparer les données, soit les variables nécessaires au calcul du score Métabolique.
+
+
+### Obésité centrale : 
+
+  + IMC > 30 kg/m² <ins>OU</ins> tour de taille (cm) :
+    + *Europids, Sub-Saharan Africans, Eastern Mediterranean and Middle East (Arab) populations:*
+      + *Waist Circumference - Male ≥ 94 cm (37 inches); Female ≥ 80 cm (31 inches)*
+    + *South Asian, Chinese, Japanese and Ethnic South and Central Americans:*
+      + *Waist Circumference - Male ≥ 90 cm (35 inches); Female ≥ 80 cm (31 inches)*
+
+
+
+=> on va utiliser les variables d'origine ethnique ou de catégorie raciale pour pouvoir établir cette variable : 
+
+**Pour les femmes :** Tour de taille ≥ 80 cm peu importe l'origine ethnique ou la catégorie raciale 
+
+**Pour les hommes :** 
+
++ Tour de taille ≥ 94cm :
+  + Origine ethinique := Caucasien|Nord-africain|Africain|Amérindien|Autres|Non disponible|NA
+  + Catégorie raciale := Blanche|Noire|Moyen-orientale|Autres|Non disponible|NA
++ Tour de taille ≥ 90 cm :
+  + Origine ethinique := Asiatique|Polynésien
+  + Catégorie raciale := Est - asiatique|Sud - asiatique|Asiatique du Sud-Est|Latino
+
+
+*<ins>Remarque :</ins> Pour les valeurs non disponible, autres et NA, j'ai décidé d'utiliser le seuil le plus large/stricte (pour éviter de potentielle "erreurs").*
+
+
+```{r variables for metabolic score - Central obesity, echo = FALSE, results = "asis"}
+
+Data_PrevenDiab_sc$IMC_logical <- Data_PrevenDiab_sc$IMC > 30
+#
+Data_PrevenDiab_sc$waist_circumference_f <- Data_PrevenDiab_sc$sexe == "femme" & Data_PrevenDiab_sc$tr_taille >= 80
+# # Origine Ethnique
+# table(Data_PrevenDiab_sc$OE, useNA = "ifany")
+# # Catégorie Raciale
+# table(Data_PrevenDiab_sc$CR, useNA = "ifany")
+
+Data_PrevenDiab_sc$waist_circumference_m <- (
+  (Data_PrevenDiab_sc$sexe == "homme" & grepl("Caucasien|Nord-africain|Africain|Amérindien|Autres|Non disponible|NA", Data_PrevenDiab_sc$OE) &
+     Data_PrevenDiab_sc$tr_taille >= 94) |
+    (Data_PrevenDiab_sc$sexe == "homme" & grepl("Asiatique|Polynésien", Data_PrevenDiab_sc$OE) &
+       Data_PrevenDiab_sc$tr_taille >= 90) |
+    (Data_PrevenDiab_sc$sexe == "homme" & grepl("Blanche|Noire|Moyen-orientale|Autres|Non disponible|NA", Data_PrevenDiab_sc$CR) &
+       Data_PrevenDiab_sc$tr_taille >= 94) |
+    (Data_PrevenDiab_sc$sexe == "homme" & grepl("Est - asiatique|Sud - asiatique|Asiatique du Sud-Est|Latino", Data_PrevenDiab_sc$CR) &
+       Data_PrevenDiab_sc$tr_taille >= 90)
+)
+
+Data_PrevenDiab_sc$Central_obesity <- (Data_PrevenDiab_sc$IMC_logical | Data_PrevenDiab_sc$waist_circumference_f | Data_PrevenDiab_sc$waist_circumference_m)
+
+knitr::kable(addmargins(table(Data_PrevenDiab_sc$Central_obesity)), col.names = c("Central Obesity", "Freq"))
+
+## --idea BUT not very interesting --> I prefer see both "true/false" for each criteria.
+## --  plus, we got those stats down, after the score calculation
+# Data_PrevenDiab_sc %>%
+#   tbl_summary(
+#     include = c(Central_obesity),
+#     label = list(Central_obesity = "Obésité centrale ou IMC > 30kg/m²"
+#     ),
+#     missing = "ifany",
+#     missing_text = "*Valeurs Manquantes*",
+#     by = Grp_C_T,
+#     type = all_continuous() ~ "continuous2",
+#     statistic = list(
+#       all_continuous() ~ c("{median} [{p25} ; {p75}]", "{mean} [{min} - {max}]"),
+#       all_categorical() ~ c("{n} ({p}%)")
+#     )
+#   ) %>%
+#   # add_p() %>%
+#   # separate_p_footnotes() %>%
+#   # add_n() %>%
+#   add_overall() %>%
+#   # modify_header(label = "**Variables**") %>%
+#   modify_spanning_header(all_stat_cols() ~ "**Score - Syndrome Métabolique**") %>%
+#   # modify_caption("**Table 1. **") %>%
+#   bold_labels()
+
+```
+
+
+### Sexe : 
+
+Le genre va être à prendre en compte dans les seuils comme pour l'obésité centrale, le taux de cholestérol HDL, ...
+
+```{r variables for metabolic score - Sexe, echo = FALSE, results = "asis"}
+
+Data_PrevenDiab_sc$gender <- ifelse(Data_PrevenDiab_sc$sexe == "femme", "F", "M")
+
+# summary(Data_PrevenDiab_sc$gender)
+knitr::kable(addmargins(table(Data_PrevenDiab_sc$gender)), col.names = c("Gender", "Freq"))
+
+```
+
+### Taux de Triglycérides : 
+
+Le seuil pour le taux de triglycérides est le suivant :
+
+  + ≥ 1.7 mmol/L  
+
+=> Conversion des données en g/L par 1.14 pour avoir des mmol/L *(https://www.sfcardio.fr/page/chapitre-3-item-223-dyslipidemies)*  
+*(je garde 1 chiffre après la virgule, pour s'approcher de la précision du seuil donné)*
+
+```{r variables for metabolic score - Triglycerides, echo = FALSE, results = "asis"}
+
+# Data_PrevenDiab_sc$Triglycerides <- ifelse(Data_PrevenDiab_sc$TRIGLYCERIDES >= 1.7, TRUE, FALSE)
+# m.a.j 2024.01 :
+Data_PrevenDiab_sc$TRIGLYCERIDES_mmol <- round(Data_PrevenDiab_sc$TG1_TRIGLYCERIDES * 1.14, digits = 1)
+Data_PrevenDiab_sc$Triglycerides <- ifelse((Data_PrevenDiab_sc$TRIGLYCERIDES_mmol) >= 1.7, TRUE, FALSE)
+
+
+# summary(Data_PrevenDiab_sc$Triglycerides)
+knitr::kable(addmargins(table(Data_PrevenDiab_sc$Triglycerides)), col.names = c("Taux de Triglycérides (≥ 1.7 mmol/L)", "Freq"))
+
+
+# round((Data_PrevenDiab_sc$TG1_TRIGLYCERIDES*1.14), digits = 2) >= 1.7
+
+```
+
+
+### Taux de cholestérol HDL : 
+
+Le seuil pour le taux de cholestérol HDL est le suivant :
+
+  + < 1.29 mmol/L pour les femmes
+  + < 1.03 mmol/L pour les hommes
+
+
+=> Conversion des données en g/L par 2.58 pour avoir des mmol/L *(https://www.sfcardio.fr/page/chapitre-3-item-223-dyslipidemies)*
+*(je garde 2 chiffre après la virgule, pour s'approcher de la précision des seuils donnés)*
+```{r variables for metabolic score - cholesterol HDL, echo = FALSE, results = "asis"}
+
+## m.a.j 2024.01 :
+Data_PrevenDiab_sc$HDL_CHOLESTEROL_mmol <- round(Data_PrevenDiab_sc$HDLH_CHOLESTEROL_HDL * 2.58, digits = 2)
+Data_PrevenDiab_sc$HDL_f <- Data_PrevenDiab_sc$sexe == "femme" & (Data_PrevenDiab_sc$HDL_CHOLESTEROL_mmol) < 1.29
+Data_PrevenDiab_sc$HDL_m <- Data_PrevenDiab_sc$sexe == "homme" & (Data_PrevenDiab_sc$HDL_CHOLESTEROL_mmol) < 1.03
+# Data_PrevenDiab_sc$HDL_total <- Data_PrevenDiab_sc$HDL_f + Data_PrevenDiab_sc$HDL_m
+Data_PrevenDiab_sc$HDL_f_m <- Data_PrevenDiab_sc$HDL_f | Data_PrevenDiab_sc$HDL_m
+
+# summary(Data_PrevenDiab_sc$HDL_f_m)
+knitr::kable(addmargins(table(Data_PrevenDiab_sc$HDL_f_m)), col.names = c("Taux de cholestérol HDL (< 1.29 mmol/L - femmes ; < 1.03 mmol/L - hommes)", "Freq"))
+
+```
+
+
+### Pression Artérielle Systolique allongée : 
+
+Le seuil pour la pression artérielle systolique allongée est le suivant :
+
+  + ≥ 130/85 mmHg
+
+```{r variables for metabolic score - PAS / blood pressure, echo = FALSE, results = "asis"}
+
+# Pression artérielle systolique en position allongée (PAS) (mmHg)
+# Data_PrevenDiab_sc$PAS
+# D'après le calculator : https://metscalc.org/
+    # What variables are used for calculating the severity score?
+    # The score requires information regarding the five components of the metabolic syndrome.
+    # These are systolic blood pressure (the upper number of the two numbers given in a blood pressure),
+    # triglycerides, HDL cholesterol, glucose (or blood sugar), and a measure of weight status.
+    # The most common means of measuring weight status is body mass index, which is calculated from height and weight.
+    # Body weight status can also be measured from waist circumference. Either of these measures of body weight status can
+    # be used in calculating a metabolic syndrome severity score.
+# => Donc on gardera l'IMC et la PAS
+Data_PrevenDiab_sc$blood_pressure <- ifelse(Data_PrevenDiab_sc$PAS >= 130, TRUE, FALSE)
+
+# summary(Data_PrevenDiab_sc$blood_pressure)
+knitr::kable(addmargins(table(Data_PrevenDiab_sc$blood_pressure)), col.names = c("Pression Artérielle Systolique Allongée (≥ 130/85 mmHg)", "Freq"))
+
+```
+
+
+### Glycémie à jeun : 
+
+Le seuil pour la Glycémie à jeun est le suivant :
+
+  + ≥ 1.10 g/L (soit ≥ 110 mg/dL (5.6 mmol/L))
+
+*<ins>Remarque :</ins> La mesure de la glycémie à jeun est présente en g/L dans nos données et en mg/dL dans le calculateur.*
+
+
+```{r variables for metabolic score - Fasting blood glucose, echo = FALSE, results = "asis"}
+
+Data_PrevenDiab_sc$fasting_blood_glucose <- ifelse(Data_PrevenDiab_sc$G_GLYCEMIE_à_jeun >= 1.10, TRUE, FALSE)
+
+# summary(Data_PrevenDiab_sc$fasting_blood_glucose)
+knitr::kable(addmargins(table(Data_PrevenDiab_sc$fasting_blood_glucose)), col.names = c("Glycémie à jeun - (≥ 1.10 g/L)", "Freq"))
+
+```
+
+
+### Diabète de type 2 : 
+
+*<ins>Remarque :</ins> Cette variable est en attente de la part de l'IPL, celle-ci faisant passer le nombre total de critères possibles de 5 à 6.*
+
+D'après le plan d'analyse, le diabète est déterminé à partir de la glycémie à jeun (> 1.25g/L). ou Diabète connu (:= également critère de non inclusion - ).   
+Pour l'instant, afin d'implémenter le score, j'ai utilisé la manière de procéder suivante : je crée la variable de T2D à partir de la glycémie à jeun (> 1.25g/L) **OU** 
+de la variable de diabète connu (considéré comme critère de non-inclusion). Il est à noter que cela va créer une redondance avec l'information de la glycémie à jeun (≥ 1.10g/L), 
+en se basant sur cette "méthode".        
+
+```{r variables for metabolic score - T2D, echo = FALSE, results = "asis"}
+
+# Variable créée à l'étape 01 - Analyses descriptives
+# table(Data_PrevenDiab_sc$Diabete)
+knitr::kable(addmargins(table(Data_PrevenDiab_sc$Diabete)), col.names = c("Diabète - Glycémie > 1.25g/L", "Freq"))
+
+# => quelle variable utiliser pour le diag du T2D ? DiabConnu, FG ? autre ? ==> variable à venir
+Data_PrevenDiab_sc$DiabConnu_logical  <- ifelse(
+  Data_PrevenDiab_sc$DiabConnu %in% "Oui" | Data_PrevenDiab_sc$Diabete %in% "Diabète",
+  TRUE, FALSE
+  # ifelse(
+  #   Data_PrevenDiab_sc$DiabConnu %in% "Non",
+  #   FALSE,
+  #   NA
+  # )
+)
+
+# summary(Data_PrevenDiab_sc$DiabConnu_logical)
+knitr::kable(addmargins(table(Data_PrevenDiab_sc$DiabConnu_logical)), col.names = c("Diabète critère", "Freq"))
+
+```
+
+
+## Calcul du score Métabolique {.tabset}
+
+Pour le calcul du score, on va compter le nombre de critères remplis de chaque individus (au minimum 3 pour être diagnostiqué).  
+En prenant soin de vérifier que l'obésité centrale en fait partie.  
+
+### Score Métabolique
+
+```{r calculation for metabolic score, echo = FALSE, results = "asis"}
+
+Data_PrevenDiab_sc$metabolic_syndrome_criteria_count <- rowSums(
+  Data_PrevenDiab_sc[, .SD, .SDcols = c("Central_obesity", "Triglycerides", "HDL_f_m", "blood_pressure", "fasting_blood_glucose", "DiabConnu_logical")],
+  na.rm = TRUE
+)
+
+knitr::kable(table(Data_PrevenDiab_sc$metabolic_syndrome_criteria_count, useNA = "ifany"), col.names = c("Metabolic syndrome - Criteria count", "Freq"))
+
+Data_PrevenDiab_sc$result_metabolic_syndrome_diag <- ifelse(Data_PrevenDiab_sc$Central_obesity & Data_PrevenDiab_sc$metabolic_syndrome_criteria_count >= 3, TRUE, FALSE)
+# Data_PrevenDiab_sc$result_metabolic_syndrome_diag[Data_PrevenDiab_sc$DiabConnu_logical %in% TRUE] <- TRUE # le diabète de Type 2 établit le diag ?
+
+
+if (Population_totale) {
+  Data_score1_metabolic_syndrome <- Data_PrevenDiab_sc[
+    , c(
+      "Patient_clean", "Central_obesity", "Triglycerides", "HDL_f_m", "blood_pressure", "fasting_blood_glucose", "metabolic_syndrome_criteria_count", "result_metabolic_syndrome_diag", ## score implemention emma
+      "DiabConnu_logical", # variables alt using T2D status (to confirm)
+      "SyndMetab_ON", "SyndMetabo_Res", "AgeMeta_V1", "AgeMeta", ## variable score metab get from IPL (to compare with our diag)
+      "IMC", "TG1_TRIGLYCERIDES", "HDLH_CHOLESTEROL_HDL", "PAS", "G_GLYCEMIE_à_jeun" # Variables numériques des différents critères
+    )
+  ]
+}
+if (Sous_groupe_Cas_Temoin) {
+  Data_score1_metabolic_syndrome <- Data_PrevenDiab_sc[
+    , c(
+      "Patient_clean", "Central_obesity", "Triglycerides", "HDL_f_m", "blood_pressure", "fasting_blood_glucose", "metabolic_syndrome_criteria_count", "result_metabolic_syndrome_diag", ## score implemention emma
+      "DiabConnu_logical", # variables alt using T2D status (to confirm)
+      "SyndMetab_ON", "SyndMetabo_Res", "AgeMeta_V1", "AgeMeta", ## variable score metab get from IPL (to compare with our diag)
+      "Grp_C_T", # si sous-groupe cas-témoins
+      "IMC", "TG1_TRIGLYCERIDES", "HDLH_CHOLESTEROL_HDL", "PAS", "G_GLYCEMIE_à_jeun" # Variables numériques des différents critères
+    )
+  ]
+}
+
+knitr::kable(with(Data_score1_metabolic_syndrome, table(metabolic_syndrome_criteria_count, result_metabolic_syndrome_diag)), row.names = TRUE, col.names = c("Metabolic syndrome diag / crit", "FALSE", "TRUE")) # "inégalités" certainement à cause de l'obesité centrale non respectée comme condition
+
+# if (Population_totale) {
+#   data.table::fwrite(Data_score1_metabolic_syndrome, file.path(outputs_directory, paste0("PrevenDiab_score1_metabolic_syndrome_tot_pop_", Sys.Date(), ".tsv")), sep = "\t")
+# }
+# if (Sous_groupe_Cas_Temoin) {
+#   data.table::fwrite(Data_score1_metabolic_syndrome, file.path(outputs_directory, paste0("PrevenDiab_score1_metabolic_syndrome_sous_groupe_", Sys.Date(), ".tsv")), sep = "\t")
+# }
+
+Data_score1_metabolic_syndrome_rename <- Data_score1_metabolic_syndrome
+colnames(Data_score1_metabolic_syndrome_rename) <- c("Patient_ID", "Obesité Centrale", "Triglycerides",
+                                              "Cholesterol HDL", "Pression artérielle systolyque", "Glycémie à jeun",
+                                              "Syndrome Metabolique criteres (count)", "Syndrome Metabolique (diag)", "Diabete T-II", # résultats du score ehenriques
+                                              "SyndMetab_ON", "SyndMetabo_Res", "AgeMeta_V1", "AgeMeta", # variables score Metabolic from IPL
+                                              "Grp_C_T", # si sous-groupe cas-témoins
+                                              "IMC", "TG1_TRIGLYCERIDES", "HDLH_CHOLESTEROL_HDL", "PAS", "G_GLYCEMIE_à_jeun" # Variables numériques des différents critères
+                                              )
+
+
+
+DT::datatable(Data_score1_metabolic_syndrome_rename, options = list(pageLength = 25, scrollX = "400px"), filter = "top", width = 1250)
+
+```
+
+
+### Statistiques descriptives
+
+```{r calculation for metabolic score - gtsummary, echo = FALSE, results = "asis"}
+
+# gtsummary
+if (Population_totale) {
+  Data_score1_metabolic_syndrome %>%
+    tbl_summary(
+      include = c(Central_obesity, IMC, Triglycerides, TG1_TRIGLYCERIDES, HDL_f_m, HDLH_CHOLESTEROL_HDL,
+                  blood_pressure, PAS, fasting_blood_glucose, G_GLYCEMIE_à_jeun,
+                  metabolic_syndrome_criteria_count, result_metabolic_syndrome_diag, SyndMetabo_Res),
+      label = list(Central_obesity = "Obésité centrale ou IMC > 30kg/m²",
+        IMC = "IMC (kg/m²)",
+        Triglycerides = "Triglycerides (≥ 150 mg/dL ou 1.7 mmol/L)",
+        TG1_TRIGLYCERIDES = "Triglycerides (mmol/L)",
+        HDL_f_m = "Cholestérol HDL (< 40 mg/dL ou 1.03 mmol/L chez les hommes ; < 50 mg/dL ou 1.29 mmol/L chez les femmes)",
+        HDLH_CHOLESTEROL_HDL = "Cholestérol HDL (mmol/L)",
+        blood_pressure = "Pression artérielle (≥ 130 / 85 mm Hg)",
+        PAS = "Pression artérielle systolique en position allongée (mmHg)",
+        fasting_blood_glucose = "Glycémie à jeun (≥ 110 mg/dL ou 5.6 mmol/L)",
+        G_GLYCEMIE_à_jeun = "Glycémie à jeun (g/L)",
+        metabolic_syndrome_criteria_count = "Syndrome métabolique : Nombre de critères remplis sur 5",
+        result_metabolic_syndrome_diag = "Syndrome métabolique : Diagnotique établi",
+        SyndMetabo_Res = "Syndrome métabolique (résultat IPL)"
+      ),
+      missing = "ifany",
+      missing_text = "*Valeurs Manquantes*",
+      type = all_continuous() ~ "continuous2",
+      statistic = list(
+        all_continuous() ~ c("{median} [{p25} ; {p75}]", "{mean} [{min} - {max}]"),
+        all_categorical() ~ c("{n} ({p}%)")
+      )
+    ) %>%
+    # add_p() %>%
+    # separate_p_footnotes() %>%
+    # add_n() %>%
+    # modify_header(label = "**Variables**") %>%
+    modify_spanning_header(all_stat_cols() ~ "**Score - Syndrome Métabolique**") %>%
+    # modify_caption("**Table 1. **") %>%
+    bold_labels()
+}
+
+if (Sous_groupe_Cas_Temoin) {
+  Data_score1_metabolic_syndrome %>%
+    tbl_summary(
+      include = c(Central_obesity, IMC, Triglycerides, TG1_TRIGLYCERIDES, HDL_f_m, HDLH_CHOLESTEROL_HDL,
+                  blood_pressure, PAS, fasting_blood_glucose, G_GLYCEMIE_à_jeun,
+                  metabolic_syndrome_criteria_count, result_metabolic_syndrome_diag, SyndMetabo_Res),
+      label = list(Central_obesity = "Obésité centrale ou IMC > 30kg/m²",
+        IMC = "IMC (kg/m²)",
+        Triglycerides = "Triglycerides (≥ 150 mg/dL ou 1.7 mmol/L)",
+        TG1_TRIGLYCERIDES = "Triglycerides (mmol/L)",
+        HDL_f_m = "Cholestérol HDL (< 40 mg/dL ou 1.03 mmol/L chez les hommes ; < 50 mg/dL ou 1.29 mmol/L chez les femmes)",
+        HDLH_CHOLESTEROL_HDL = "Cholestérol HDL (mmol/L)",
+        blood_pressure = "Pression artérielle (≥ 130 / 85 mm Hg)",
+        PAS = "Pression artérielle systolique en position allongée (mmHg)",
+        fasting_blood_glucose = "Glycémie à jeun (≥ 110 mg/dL ou 5.6 mmol/L)",
+        G_GLYCEMIE_à_jeun = "Glycémie à jeun (g/L)",
+        metabolic_syndrome_criteria_count = "Syndrome métabolique : Nombre de critères remplis sur 5 (6 avec le diabète)",
+        result_metabolic_syndrome_diag = "Syndrome métabolique : Diagnotique établi",
+        SyndMetabo_Res = "Syndrome métabolique (résultats IPL)"
+      ),
+      missing = "ifany",
+      missing_text = "*Valeurs Manquantes*",
+      by = Grp_C_T,
+      type = all_continuous() ~ "continuous2",
+      statistic = list(
+        all_continuous() ~ c("{median} [{p25} ; {p75}]", "{mean} [{min} - {max}]"),
+        all_categorical() ~ c("{n} ({p}%)")
+      )
+    ) %>%
+    # add_p() %>%
+    # separate_p_footnotes() %>%
+    # add_n() %>%
+    add_overall() %>%
+    # modify_header(label = "**Variables**") %>%
+    modify_spanning_header(all_stat_cols() ~ "**Score - Syndrome Métabolique**") %>%
+    # modify_caption("**Table 1. **") %>%
+    bold_labels()
+}
+
+```
+
+
+### Comparaison
+
+```{r calculation for metabolic score - comparison results diag, echo = FALSE, results = "asis"}
+
+
+knitr::kable(with(Data_score1_metabolic_syndrome, table(result_metabolic_syndrome_diag, SyndMetabo_Res)), row.names = TRUE, col.names = c("Metabolic syndrome diag (eh) VS from data", "", "Non", "Oui"))
+
+
+DT::datatable(Data_score1_metabolic_syndrome[, c("Patient_clean", "result_metabolic_syndrome_diag", "SyndMetabo_Res")], options = list(pageLength = 25, scrollX = "400px"), filter = "top", width = 1250)
+
+```
+
+
+### Mesures
+
+```{r calculation for metabolic score - mesures brutes, echo = FALSE, results = "asis"}
+
+# Data_score1_metabolic_syndrome[, c("Patient_clean", "result_metabolic_syndrome_diag", "SyndMetabo_Res")]
+# Data_PrevenDiab_sc[, c("Patient_clean", "gender", "IMC", "tr_taille", "TRIGLYCERIDES_mmol", "HDL_CHOLESTEROL_mmol", "PAS", "G_GLYCEMIE_à_jeun")]
+
+Data_PrevenDiab_Meta_Mesures <- merge(Data_PrevenDiab_sc[, c("Patient_clean", "gender", "IMC", "tr_taille", "TRIGLYCERIDES_mmol", "HDL_CHOLESTEROL_mmol", "PAS", "G_GLYCEMIE_à_jeun")],
+  Data_score1_metabolic_syndrome[, c("Patient_clean", "result_metabolic_syndrome_diag", "SyndMetabo_Res")],
+  by = "Patient_clean"
+)
+
+
+DT::datatable(Data_PrevenDiab_Meta_Mesures, options = list(pageLength = 25, scrollX = "400px"), filter = "top", width = 1250)
+
+table(Data_PrevenDiab_Meta_Mesures$result_metabolic_syndrome_diag, Data_PrevenDiab_Meta_Mesures$SyndMetabo_Res)
+
+```
+
+
+# Score Framingham
+
+## Introduction à la préparation des données {.tabset}
+
+Concernant le score Framingham, on se base sur la publication suivante : 
+[General Cardiovascular Risk Profile for Use in Primary Care | Circulation (ahajournals.org)](https://www.ahajournals.org/doi/10.1161/CIRCULATIONAHA.107.699579?url_ver=Z39.88-2003&rfr_id=ori:rid:crossref.org&rfr_dat=cr_pub%20%200pubmed#FD2).      
+
+La publication renseigne sur l'attribution des points aux différentes valeurs prises par les variables.  
+
+
+Le score Framingham utilise les éléments suivants :
+
++ Genre
++ Age
++ Cholestérol total
++ Cholestérol HDL 
++ Pression artérielle systolic
++ Sous traitement pour l'hypertension
++ Statut tabagique
++ Statut diabétique
+
+A ces critères, le calculateur en ligne utilise une information supplémentaire :   
+***=>*** *Maladie vasculaire connue (maladie coronarienne, maladie cardiovasculaire, accident vasculaire cérébral)* (non traité dans l'article)   
+
+
+### Calculateur en ligne 
+
+Le [calculateur en ligne](https://qxmd.com/calculate/calculator_252/framingham-risk-score-2008#) utilisé par l'IPL utilise les variables suivantes :
+
+<center>
+![](/docs/Images/Framingham_score_calculator.png)
+</center>
+
+
+
+### Echanges et discussions
+
+Suite aux échanges avec l'IPL, les points retenus sont les suivants :   
+
+Comme précisé, on souhaite prendre en compte l'information sur les antécédents cardiovasculaires. Pour cela, on va regarder les variables suivantes :
+
++ AP_AVC_ON : Accident Vasculaire Cérébral - attaque,
++ AP_IAM_ON : Infractus Aigu du Myocarde,
++ AP_autreMCV_ON : Maladie CardioVasculaire.  
+
+**=>** Cette information (si présente pour l'individu) permet donc de classer le niveau de risque en ***élevé***.
+  
+  
+Pour ce qui est du traitement de l'hypertension, on va regarder dans un premier temps s'il y a des antécédents d'hypertension (AP_HTA_ON),  
+**=>** Si OUI, on va regarder au niveau des antécédents médicaux, concernant la classe thérapeutique : code C (système cardiovasculaire).
+
++ Variables : Med1_ATC, Med2_ATC, Med3_ATC, ...
++ Classe à exclure : C01, C04, C05, C10.  
+
+
+
+## Préparation des données {.tabset}
+
+On va donc préparer les données, soit les variables nécessaires au calcul du score Framingham.
+
+### Genre/Sexe :
+
+```{r variables for Framingham score - Genre, echo = FALSE, results = "asis"}
+
+# Data_PrevenDiab_sc$gender <- ifelse(Data_PrevenDiab_sc$sexe == "femme", "F", "M") # déjà ok
+# table(Data_PrevenDiab_sc$gender)
+knitr::kable(addmargins(table(Data_PrevenDiab_sc$gender)), col.names = c("Gender", "Freq"))
+
+```
+
+### Age :
+
+Un seuil est utilisé sur la variable de l'âge : 
+
++ 30 ans minimum (pour l'article et pour le calculateur), en dessous de ce seuil, on ne calcule pas le risque.
+
+
+```{r variables for Framingham score - Age, echo = FALSE, results = "asis"}
+
+knitr::kable(t(as.matrix(summary(Data_PrevenDiab_sc$Age))), caption = "Age")
+# print(freq(Data_PrevenDiab_sc$Age), method = "render")
+# print(xtable(t(summary(Data_PrevenDiab_sc$Age))))
+# knitr::kable(summary(Data_PrevenDiab_sc$Age))
+Data_PrevenDiab_sc$Age_verif <- ifelse(Data_PrevenDiab_sc$Age >= 30, TRUE, FALSE)
+
+# table(Data_PrevenDiab_sc$Age_verif)
+knitr::kable(addmargins(table(Data_PrevenDiab_sc$Age_verif)), col.names = c("Age vérifié (> 30 ans)", "Freq"))
+
+```
+
+
+### Cholestérol HDL et total :
+
+Conversion des unités pour le cholestérol de g/L à mg/dL en multipliant par 100 *(http://medicalcul.free.fr/conversions.html)*. Afin de se caler sur l'article et sur le package utilisé plus bas.  
+
+
+```{r variables for Framingham score - CHOLESTEROL HDL & TOTAL, echo = FALSE, results = "asis"}
+
+Data_PrevenDiab_sc$hdl <- Data_PrevenDiab_sc$HDLH_CHOLESTEROL_HDL * 100
+# summary(Data_PrevenDiab_sc$hdl)
+knitr::kable(t(as.matrix(summary(Data_PrevenDiab_sc$hdl))), caption = "Cholestérol HDL")
+Data_PrevenDiab_sc$chl <- Data_PrevenDiab_sc$CH_CHOLESTEROL_TOTAL * 100
+# summary(Data_PrevenDiab_sc$chl)
+knitr::kable(t(as.matrix(summary(Data_PrevenDiab_sc$chl))), caption = "Cholestérol Total")
+
+```
+
+### Pression Artérielle Systolique allongée : 
+
+```{r variables for Framingham score - PAS, echo = FALSE, results = "asis"}
+
+#Data_PrevenDiab_sc$PAS # Pression artérielle systolique en position allongée (PAS) (mmHg)
+# summary(Data_PrevenDiab_sc$PAS)
+knitr::kable(t(as.matrix(summary(Data_PrevenDiab_sc$PAS))), caption = "Pression Artérielle Sysolique")
+
+```
+
+
+### Antécédents d'hypertension : 
+
+
+```{r variables for Framingham score - antécédents hypertension, echo = FALSE, results = "asis"}
+
+Data_PrevenDiab_sc$antecedent_hypertension <- ifelse(Data_PrevenDiab_sc$AP_HTA_ON == "Oui", TRUE, FALSE)
+
+```
+
+```{r variables for Framingham score - antécédents hypertension Med, echo = FALSE, results = "asis"}
+
+###============================================================================================================================================================
+# Medxx_ATC - Prise de médicaments (Médicaments/risque de diabète)
+###============================================================================================================================================================
+# xx : 1 - 20
+###============================================================================================================================================================
+# on récupère les noms de variables + on en récupère une sous-base
+###============================================================================================================================================================
+nom_variable_traitement <- paste0("Med", 1:20, "_ATC") # ok pour les noms de variables
+Data_MedX_ATC <- subset(Data_PrevenDiab_sc, select = nom_variable_traitement)
+Data_MedX_ATC <- Data_MedX_ATC %>%
+  dplyr::mutate_at(dplyr::vars(tidyselect::all_of(nom_variable_traitement)), as.character)
+# str(Data_MedX_ATC)
+###============================================================================================================================================================
+# on identifie la classe des médicaments
+# library(stringr)
+# classe_C <- str_detect(substr(check_classe_C$Med1_ATC, 1, 3), "C")
+Data_classe_C <- as.data.frame(matrix(NA, nrow = nrow(Data_MedX_ATC)))
+for (i in seq_len(length(nom_variable_traitement))) {
+  Data_classe_C[[i]] <- str_detect(substr(Data_MedX_ATC[[i]], 1, 3), "C") # TRUE si médicament de classe C
+}
+colnames(Data_classe_C) <- paste0(nom_variable_traitement, "_C") # variable_C : médicaments de classe C (TRUE/FALSE)
+# Data_classe_C$Med_ATC_verif <- rowSums(Data_classe_C)
+Data_classe_C$Patient_clean <- Data_PrevenDiab_sc$Patient_clean
+
+###============================================================================================================================================================
+# on identifie les bons médicaments de la classe C (TRUE/FLASE)
+###============================================================================================================================================================
+Data_classe_C_check <- as.data.frame(matrix(NA, nrow = nrow(Data_MedX_ATC)))
+for (i in seq_len(length(nom_variable_traitement))) {
+  Data_classe_C_check[[i]] <- ifelse(Data_classe_C[[i]] %in% TRUE & !(substr(Data_MedX_ATC[[i]], 1, 3) %in% c("C01", "C04", "C05", "C10")), TRUE, FALSE)
+}
+colnames(Data_classe_C_check) <- paste0(nom_variable_traitement, "_verif")
+Data_classe_C_check$Med_ATC_verif <- rowSums(Data_classe_C_check)
+Data_classe_C_check$Patient_clean <- Data_PrevenDiab_sc$Patient_clean
+
+# ce qui permet ensuite de créer la variable du traitement de l'hypertention sous les deux conditions (classe C + exclusion)
+Data_PrevenDiab_sc$Med_hypertension_check_class_C <- !(Data_classe_C_check$Med_ATC_verif %in% 0)
+# Variable de traitement hypertension
+Data_PrevenDiab_sc$is_sbp_under_treatment <- (Data_PrevenDiab_sc$antecedent_hypertension | Data_PrevenDiab_sc$Med_hypertension_check_class_C)
+###============================================================================================================================================================
+
+# summary(Data_PrevenDiab_sc$is_sbp_under_treatment)
+knitr::kable(addmargins(table(Data_PrevenDiab_sc$is_sbp_under_treatment)), col.names = c("Sous traitement pour l'hypertension", "Freq"))
+
+```
+
+
+### Statut tabagique : 
+
+```{r variables for Framingham score - Statut tabagique, echo = FALSE, results = "asis"}
+
+Data_PrevenDiab_sc$smoking_status <- ifelse(Data_PrevenDiab_sc$FumActuel == "Oui", TRUE, FALSE)
+# table(Data_PrevenDiab_sc$smoking_status)
+knitr::kable(addmargins(table(Data_PrevenDiab_sc$smoking_status)), col.names = c("Statut tabagique", "Freq"))
+
+```
+
+### Statut diabétique : 
+
+Comme pour le score Métabolique, on va se baser sur le plan d'analyse qui suppose la glycémie à jeun > à 1.25 g/L.
+
+```{r variables for Framingham score - Statut diabétique, echo = FALSE, results = "asis"}
+
+Data_PrevenDiab_sc$diabetes_status  <- ifelse(Data_PrevenDiab_sc$Gly_jeun > 1.25, TRUE, FALSE)
+# table(Data_PrevenDiab_sc$diabetes_status)
+knitr::kable(addmargins(table(Data_PrevenDiab_sc$diabetes_status)), col.names = c("Statut Diabétique ", "Freq"))
+
+```
+
+### Antécédents cardiovasculaires :
+
+==> non utilisé et non présent dans l'article ni dans le package utilisé pour calculer le score (car se basant sur l'article).  
+(pas de description trouvée)
+
+**<ins>Retour de l'IPL :</ins>** Classe le risque en "élevé" si antécédents
+
+```{r variables for Framingham score - Antécédents cardiovasculaires, echo = FALSE, results = "asis"}
+
+# table(Data_PrevenDiab_sc$AP_AVC_ON)
+# table(Data_PrevenDiab_sc$AP_IAM_ON)
+# table(Data_PrevenDiab_sc$AP_autreMCV_ON)
+
+knitr::kable(addmargins(table(Data_PrevenDiab_sc$AP_AVC_ON)), col.names = c("AVC - accident vasculaire cérébral", "Freq"))
+knitr::kable(addmargins(table(Data_PrevenDiab_sc$AP_IAM_ON)), col.names = c("Infractus Aigu du Myocarde", "Freq"))
+knitr::kable(addmargins(table(Data_PrevenDiab_sc$AP_autreMCV_ON)), col.names = c("Maladie CardioVasculaire.", "Freq"))
+
+```
+
+## Calcul du score Framingham {.tabset}
+
+Ici, je me suis basée sur le package R [***frisk***](https://github.com/PHP2560-Statistical-Programming-R/r-framingham), tout en prenant en 
+compte les remarques et demandes de l'IPL, notamment la correction de seuils planchers et plafonds *(cf : Cholestérol par ex)*.   
+
+```{r calculation for framingham score - package load, include = FALSE}
+
+### project setup ==================================================================================
+invisible(
+  sapply(
+    X = list.files(here("scripts", "Framingham_score"), pattern = "^00.*r$", full.names = TRUE),
+    FUN = source, echo = FALSE
+  )
+)
+# on a repris les fonctions du package frisk pour pouvoir arranger les risques
+
+```
+
+***<ins>Note :</ins>*** Risk = Estimated 10-year Global CVD Risk
+
+### Score Framingham
+
+On établit des seuils sur le score obtenu, cependant 2 seuils sont présents dans la littérature. J'ai donc décider de traiter les 2 situations :  
+
++ seuils de 0-6-20+ %
+  + "We used 0% to 6%, 6% to 20%, and >20% as risk categories." ***(d'après l'article)***
++ seuils de 0-10-20+ %
+  + d'après documentation en ligne
+    + [exemple 1](https://ccs.ca/app/uploads/2020/12/FRS_fr_2017_fnl1.pdf)...
+    + [exemple 2](https://www.cairn.info/revue-sante-publique-2009-6-page-547.htm#:~:text=Nous%20avons%20divis%C3%A9%20la%20population,de%2020%20%25%20(haut).)   
+
+
+
+**=>** Ces seuils servent à classer le niveau de risque de chaque individus, ainsi de 0% à 6% (respectivement 10%), le risque est ***faible***. 
+De même, de 6% (respectivement 10%) à 20%, le risque est ***modéré***. Enfin, au-delà de 20%, le risque est ***élevé***. 
+
+
+```{r calculation for framingham score, echo = FALSE, results = "asis", warning = FALSE}
+
+# calcul grâce aux fonctions *.r --> cf Framingham_score folder
+
+#' @param data A dataframe
+#' @param gender A character
+#' @param age A number
+#' @param hdl A number
+#' @param cholesterol A number
+#' @param sbp A number
+#' @param is_sbp_under_treatment A boolean
+#' @param smoking_status A boolean
+#' @param diabetes_status A boolean
+#' @return framingham cardivascular 10 years risk score \code{data} and \code{...}
+#' 
+
+
+if (Population_totale) {
+  Framingham_score_diy_1 <- calc_card_10(
+    data = Data_PrevenDiab_sc,
+    gender = "gender",
+    age = "Age",
+    # bmi = ,
+    hdl = "hdl",
+    cholesterol = "chl",
+    sbp = "PAS",
+    is_sbp_under_treatment = "is_sbp_under_treatment",
+    smoking_status = "smoking_status",
+    diabetes_status = "diabetes_status"
+  )[, c(
+    # var for Framingham score :
+    "Patient_clean", "gender", "Age", "Age_verif", "hdl", "chl", "PAS", "is_sbp_under_treatment", "smoking_status", "diabetes_status",
+    # reult of Framingham score - from data :
+    "Framingham_ON", "ScFramingham", "NiveauRisque", "AgeCardiaque",
+    # result of Framingham score diy :
+    "points", "risk", "heart_age",
+    # Autres variables utiles :...
+    "AP_AVC_ON", "AP_IAM_ON", "AP_autreMCV_ON"
+  )
+  ]
+}
+
+if (Sous_groupe_Cas_Temoin) {
+  Framingham_score_diy_1 <- calc_card_10(
+    data = Data_PrevenDiab_sc,
+    gender = "gender",
+    age = "Age",
+    # bmi = ,
+    hdl = "hdl",
+    cholesterol = "chl",
+    sbp = "PAS",
+    is_sbp_under_treatment = "is_sbp_under_treatment",
+    smoking_status = "smoking_status",
+    diabetes_status = "diabetes_status"
+  )[, c(
+    # var for Framingham score :
+    "Patient_clean", "gender", "Age", "Age_verif", "hdl", "chl", "PAS", "is_sbp_under_treatment", "smoking_status", "diabetes_status",
+    # reult of Framingham score - from data :
+    "Framingham_ON", "ScFramingham", "NiveauRisque", "AgeCardiaque",
+    # result of Framingham score diy :
+    "points", "risk", "heart_age",
+    # Autres variables utiles :...
+    "AP_AVC_ON", "AP_IAM_ON", "AP_autreMCV_ON",
+    # Variable de groupe cas-témoins
+    "Grp_C_T"
+  )
+  ]
+}
+
+# colnames(Framingham_score_diy_1)
+# Sys.Date()
+
+# # Niveau de risque associé au score (%)
+# Framingham_score_diy_1$NiveauRisque 
+cat("**Niveau de risque associé au score (%)**")
+# table(Framingham_score_diy_1$NiveauRisque, useNA = "ifany")
+knitr::kable(addmargins(table(Framingham_score_diy_1$NiveauRisque)), col.names = c("NiveauRisque (IPL)", "Freq"))
+# on va créer des catégories de niveau de risque en se basant sur l'article : 0-6% ; 6-20% ; +20%
+Framingham_score_diy_1$risk_numeric <- as.numeric(gsub(">", "", gsub("<", "", x = Framingham_score_diy_1$risk)))
+
+###
+# Data_PrevenDiab_sc$AP_AVC_ON
+# Data_PrevenDiab_sc$AP_IAM_ON
+# Data_PrevenDiab_sc$AP_autreMCV_ON
+###
+    # élévé si >20% / Diabétique / antécédent vasculaire (CAD, PVD, Stroke)
+Framingham_score_diy_1$Niveau_risque_diy <- NA
+Framingham_score_diy_1$Niveau_risque_diy[Framingham_score_diy_1$risk_numeric <= 6] <- "Faible"
+Framingham_score_diy_1$Niveau_risque_diy[Framingham_score_diy_1$risk_numeric > 6 & Framingham_score_diy_1$risk_numeric <= 20] <- "Modéré"
+Framingham_score_diy_1$Niveau_risque_diy[
+  Framingham_score_diy_1$risk_numeric > 20 | Framingham_score_diy_1$diabetes_status | Framingham_score_diy_1$AP_AVC_ON %in% "Oui" |
+    Framingham_score_diy_1$AP_IAM_ON %in% "Oui" | Framingham_score_diy_1$AP_autreMCV_ON %in% "Oui"
+] <- "Elevé"
+Framingham_score_diy_1$Niveau_risque_diy[Framingham_score_diy_1$risk_numeric %in% NA] <- NA
+###
+    # mais aussi comparer avec les seuils observés avec le calculator & les data
+Framingham_score_diy_1$Niveau_risque_diy_10 <- NA
+Framingham_score_diy_1$Niveau_risque_diy_10[Framingham_score_diy_1$risk_numeric <= 10] <- "Faible"
+Framingham_score_diy_1$Niveau_risque_diy_10[Framingham_score_diy_1$risk_numeric > 10 & Framingham_score_diy_1$risk_numeric <= 20] <- "Modéré"
+Framingham_score_diy_1$Niveau_risque_diy_10[
+  Framingham_score_diy_1$risk_numeric > 20 | Framingham_score_diy_1$diabetes_status | Framingham_score_diy_1$AP_AVC_ON %in% "Oui" |
+    Framingham_score_diy_1$AP_IAM_ON %in% "Oui" | Framingham_score_diy_1$AP_autreMCV_ON %in% "Oui"
+] <- "Elevé"
+Framingham_score_diy_1$Niveau_risque_diy_10[Framingham_score_diy_1$risk_numeric %in% NA] <- NA
+
+# with(Framingham_score_diy_1, table(Niveau_risque_diy, Niveau_risque_diy_10))
+add_header_above(knitr::kable(with(Framingham_score_diy_1, table(Niveau_risque_diy, Niveau_risque_diy_10)),
+  row.names = TRUE, col.names = c("Niveau de risque (seuil à 6%)", "Elevé", "Faible", "Modéré")),
+  header = c(" " = 1, "Niveau de risque (seuil à 10%)" = 3))
+
+
+
+Framingham_score_diy_1_rename <- Framingham_score_diy_1
+colnames(Framingham_score_diy_1_rename) <- c("Patient_ID", "Genre", "Age", "Age check", "Cholesterol HDL", "Cholesterol total", "Pression artérielle systolyque",
+                                 "sous traitement sbp", "Statut tabagique", "Statut diabétique",
+                                 "Framingham_ON", "ScFramingham", "NiveauRisque", "AgeCardiaque", # variables score Framingham from IPL
+                                 "Points score", "Risk", "Age vasculaire estimé", # résultats du score ehenriques
+                                 "AP_AVC_ON", "AP_IAM_ON", "AP_autreMCV_ON", # variables de risque
+                                 "Grp_C_T", # Variable de groupe cas-témoins
+                                 "risk (numeric)", "niveau de risque (6/20)", "niveau de risque (10/20)"
+                                 )
+
+
+
+DT::datatable(Framingham_score_diy_1_rename, options = list(pageLength = 25, scrollX = "400px"), filter = "top", width = 1250)
+
+
+
+
+```
+
+### Statistiques descriptives
+
+```{r calculation for framingham score - gtsummary, echo = FALSE, results = "asis"}
+
+# gtsummary
+Framingham_score_diy_1 %>%
+  tbl_summary(
+    include = c(Age, Age_verif, hdl, chl, PAS, is_sbp_under_treatment, smoking_status, diabetes_status),
+    # label = list(Central_obesity = "Obésité centrale ou IMC > 30kg/m²",
+    #   Triglycerides = "Triglycerides ≥ 150 mg/dL (1.7 mmol/L)",
+    #   HDL_f_m = "Cholestérol HDL (< 40 mg/dL (1.03 mmol/L) in Men; < 50 mg/dL (1.29 mmol/L) in women)",
+    #   blood_pressure = "Pression artérielle (≥ 130 / 85 mm Hg)",
+    #   fasting_blood_glucose = "Glycémie à jeun (≥ 110 mg/dL (5.6 mmol/L)",
+    #   metabolic_syndrome_criteria_count = "Syndrome métabolique : Nombre de critères remplis (sur 5)",
+    #   result_metabolic_syndrome_diag = "Syndrome métabolique : Diagnotique établi ?",
+    #   SyndMetabo_Res = "Syndrome métabolique (résultat IPL)"
+    # ),
+    missing = "ifany",
+    missing_text = "*Valeurs Manquantes*",
+    by = Grp_C_T,
+    type = all_continuous() ~ "continuous2",
+    statistic = list(
+      all_continuous() ~ c("{median} [{p25} ; {p75}]", "{mean} [{min} - {max}]"),
+      all_categorical() ~ c("{n} ({p}%)")
+    )
+  ) %>%
+  # add_p() %>%
+  # separate_p_footnotes() %>%
+  # add_n() %>%
+  add_overall() %>%
+  # modify_header(label = "**Variables**") %>%
+  modify_spanning_header(all_stat_cols() ~ "**Score Framingham**") %>%
+  # modify_caption("**Table 1. **") %>%
+  bold_labels()
+
+```
+
+### Comparaison
+
+```{r calculation for Framingham score - comparison results, echo = FALSE, results = "asis"}
+
+
+# knitr::kable(with(Framingham_score_diy_1, table(result_metabolic_syndrome_diag, SyndMetabo_Res)), row.names = TRUE, col.names = c("Metabolic syndrome diag (eh) VS from data", "", "Non", "Oui"))
+
+
+
+DT::datatable(Framingham_score_diy_1[, c("Patient_clean", "ScFramingham", "NiveauRisque", "risk", "Niveau_risque_diy", "Niveau_risque_diy_10")], options = list(pageLength = 25, scrollX = "400px"), filter = "top", width = 1250)
+
+```
+
+
+
+```{r calculation for Framingham score - mesures brutes, echo = FALSE, results = "asis"}
+
+### Mesures
+
+# Data_score1_metabolic_syndrome[, c("Patient_clean", "result_metabolic_syndrome_diag", "SyndMetabo_Res")]
+# Data_PrevenDiab_sc[, c("Patient_clean", "gender", "IMC", "tr_taille", "TRIGLYCERIDES_mmol", "HDL_CHOLESTEROL_mmol", "PAS", "G_GLYCEMIE_à_jeun")]
+
+# Data_PrevenDiab_Fram_Mesures <- merge(Data_PrevenDiab_sc[, c("Patient_clean", "gender", "IMC", "tr_taille", "TRIGLYCERIDES_mmol", "HDL_CHOLESTEROL_mmol", "PAS", "G_GLYCEMIE_à_jeun")],
+#   Data_score1_metabolic_syndrome[, c("Patient_clean", "result_metabolic_syndrome_diag", "SyndMetabo_Res")],
+#   by = "Patient_clean"
+# )
+
+
+# DT::datatable(Data_PrevenDiab_Fram_Mesures, options = list(pageLength = 25, scrollX = "400px"), filter = "top", width = 1250)
+
+# table(Data_PrevenDiab_Fram_Mesures$result_metabolic_syndrome_diag, Data_PrevenDiab_Fram_Mesures$SyndMetabo_Res)
+
+```
