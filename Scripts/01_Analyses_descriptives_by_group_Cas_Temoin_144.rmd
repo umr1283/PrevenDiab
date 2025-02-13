@@ -1,0 +1,1267 @@
+---
+title: "Analyses statistiques - PrevenDIAB - sous-groupe - Etude cas/témoins"
+author: "Emma Henriques"
+date: "`r Sys.Date()`"
+knit: (function(inputFile, encoding) {
+  rmarkdown::render(inputFile, encoding = encoding, output_dir = "outputs", output_format = "all") })
+
+output:
+  html_document: 
+    toc: yes
+    toc_depth: 3
+    number_sections: true #to automatically number the sections
+    toc_float: true #to float the table of contents
+
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r packages load, include = FALSE}
+
+library(languageserver)
+library(httpgd)
+library(readxl)
+library(dplyr)
+library(gtsummary)
+theme_gtsummary_language(language = "fr", decimal.mark = ",", big.mark = " ")
+library(ggplot2)
+library(patchwork)
+library(questionr)
+library(stats)
+library(data.table)
+library(openxlsx)
+library(tidyverse)
+library(here)
+# library(plyr)
+# gt pkg to show table
+
+```
+
+# Chargement des données
+
+```{r Data load, echo = FALSE, message = FALSE, warning = FALSE}
+
+Data_PrevenDiab <- data.table::fread(here("outputs", "Data_PrevenDiab_merged_00_sous-groupe_2024-01-10.tsv"), header = TRUE, sep = "\t")
+
+
+```
+
+Utilisation des données cliniques et biologiques envoyées par l'IPL, soit 144 individus appartenant à l'étude cas/témoins.  
+
+La base de données a `r nrow(Data_PrevenDiab)` lignes et `r ncol(Data_PrevenDiab)` colonnes.   
+
+Elle est composée de différents groupes de variables/catégories :  
+
+**<ins>Variables cliniques</ins>**   
+
++ <ins>V0 : Visite 0</ins>
+  + 1_Vérification des critères de sélection
+  + 2_Recueil d'échantillons
+  + 3_Données socio-démographiques et économiques
+  + 4_Habitudes de vie
+  + 5_Paramètres cliniques et anthropométriques
+  + 6_Paramètres biologiques et paracliniques
+  + 7_Précarité
+  + 8_Activité physique
+  + 9_Alimentation
+  + 10_Dépendance tabagique
+  + 11_Echelle du retentissement émotionnel
+  + 12_Stress
+  + 13_Qualité de vie
+  + 14_Fragilité (FRIED)
+  + 15_Autres questionnaires
++ <ins>V1 : Visite 1</ins>
+  + 1_Vérification des critères de sélection
+  + 2_Examens physiques
+  + 3_Statut cognitif
+  + 4_Troubles psychologiques
+  + 5_Sommeil
+  + 6_Activité physique
+  + 7_Alcool
+  + 8_Fragilité
+  + 9_Autres questionnaires
++ <ins>Historique médical</ins>
+  + Antécédents familiaux
+  + Antécédents personnels
+  + Perception Patient
++ <ins>Traitements</ins>
+  + Médicaments/Risque de diabète
+  + Vitamines & Compléments alimentaires
++ <ins>Fin d'étude</ins>
+  + Visite de fin d'étude
++ <ins>Grossesse</ins>
+  + Grossesse Partie 1
+  + Grossesse Partie 2
++ <ins>EI/EIG</ins>
+  + EI/EIG 1    
+
+**<ins>Variables biologiques</ins>**   
+
++ PROTEINES Urinaires
++ HEMOGLOBINE GLYQUEE (A1.c)
++ ALBUMINE
++ APOLIPOPROTEINES A1
++ CREATININE
++ C.C.M.H
++ CHOLESTEROL TOTAL
++ CHOLESTEROL HDL
++ CHOLESTEROL LDL
++ Estimation du DFG (CKD-EPI)(ml/min/1,73m²)
++ CREATININE URINAIRE
++ Polynucléaires éosinophiles (EOSI2 & EOSI3)
++ Polynucléaires basophiles (BASO2 & BASO3)
++ Polynucléaires neutrophiles (NEUT2 & NEUT3)
++ Erythroblastes
++ GLYCEMIE à jeun
++ LEUCOCYTES
++ GAMMA G.T
++ HEMATIES
++ Hémoglobine
++ Hématocrite
++ I.D.R
++ Lymphocytes (LYMPH2 & LYMPH3)
++ Monocytes (MONO2 & MONO3)
++ TRANSAMINASES ASAT (SGOT)
++ TRANSAMINASES ALAT (SGPT)
++ PHOSPHATASES ALCALINES
++ PLAQUETTES
++ T.C.M.H
++ TRIGLYCERIDES
++ UREE
++ V.G.M
++ Volume plaquettaire moyen
++ et des commentaires   
+
+
+```{r Rename var, echo = FALSE, message = FALSE, warning = FALSE}
+
+Data_PrevenDiab <-
+  Data_PrevenDiab %>%
+  rename(
+    Pers_Majeur = CI1,
+    Exam_prev_sante_IPL = CI2,
+    OK_contraintes = CI3,
+    Consent_study = CI4,
+    Insured_person = CI5,
+    Participate_another_study = CNI1,
+    Deprived_liberty = CNI2,
+    Prevention_of_consent = CNI3,
+    Inconsistent_scheduling = CNI4,
+    State_health_or_treatment_incompatible = CNI5
+  )
+
+# head(colnames(Data_PrevenDiab), n = 20)
+
+```
+
+```{r Correct class of var, echo = FALSE, message = FALSE, warning = FALSE}
+
+cols_factor <- c("Pers_Majeur", "Exam_prev_sante_IPL", "OK_contraintes", "Consent_study", "Insured_person", "Participate_another_study",
+                 "Deprived_liberty", "Prevention_of_consent", "Inconsistent_scheduling", "State_health_or_treatment_incompatible", "InclusionON",
+                 "Participation", "sexe", "Etat_FM", "ETAT_AR", "DiabConnu", "Med_ON", "AP_covid_ON", "VaccinationCOVID_ON", "AP_Prematurite_ON",
+                 "AP_GrossEnCours_ON", "ATCD_Grossesse", "AP_GrossDG_ON", "AP_OvPoly_ON", "AP_Hyperandrogenie_ON", "AP_Menopause_ON", "AP_HTA_ON",
+                 "AP_IAM_ON", "AP_AVC_ON", "AP_autreMCV_ON", "AP_HyperCHL_ON", "AP_HTGD_ON", "AP_PD_ON", "AP_DC_ON", "AP_DC_ComVas_ON", "AP_DC_ComNeu_ON",
+                 "AP_IRC_ON", "AP_SH_ON", "AP_TI_ON", "AP_TI_Dyspepsie_ON", "AP_TI_Diarrhee_ON", "AP_TI_Constipation_ON", "AP_TI_RG_ON", "AP_DouChron_ON",
+                 "AP_DouChron_Muscu_ON", "AP_DouChron_Arti_ON", "AP_DouChron_Neuro_ON", "AP_DouChron_Migraine_ON", "AP_Apnee_ON", "AP_Apnee_Appareillage_ON",
+                 "AP_DeficitAuditif_ON", "AP_DeficitVisuel_loin", "AP_DeficitVisuel_pres", "V1_ON")
+
+
+# str(Data_PrevenDiab)
+for (i in seq_len(length(cols_factor))) {
+  # i <- 3
+  var <- cols_factor[i]
+  # print(var)
+  Data_PrevenDiab[[var]] <- as.factor(Data_PrevenDiab[[var]])
+}
+# str(Data_PrevenDiab)
+# table(Data_PrevenDiab$Pers_Majeur)
+
+#______________________________________________________
+
+cols_numeric <- c("FC_repos", "PdsCorporel", "PdsCorporel_V1", "IMC", "tr_taille", "tr_hanche", "tr_cou", "GraisseCorp", "MasseMuscu%", "MasseOsseuse",
+                  "AU_YOJD", "AU_YOJG", "AU_YFJD", "AU_YFJG", "Res_FM", "ResAGEreader_U", "Gly_jeun", "HbA1C_value", "ScoreEPICES")
+
+for (i in seq_len(length(cols_numeric))) {
+  # i <- 3
+  var <- cols_numeric[i]
+  # print(var)
+  Data_PrevenDiab[[var]] <- as.numeric(Data_PrevenDiab[[var]])
+}
+
+```
+
+```{r Var creation, echo = FALSE, message = FALSE, warning = FALSE}
+
+# Résultat de l'impédancemétrie : Masse osseuse (%)
+Data_PrevenDiab$MasseOsseuse_percent <- ((100 * Data_PrevenDiab$MasseOsseuse) / Data_PrevenDiab$PdsCorporel)
+
+# Glycémie / Hémoglobine glyquée : normal/anormal
+Data_PrevenDiab$Gly_jeun_Norm_ANorm <- ifelse(Data_PrevenDiab$Gly_jeun > 1, "anormale (> 1 g/L)", "normale (≤ 1 g/L)")
+Data_PrevenDiab$HbA1C_value_Norm_ANorm <- ifelse(Data_PrevenDiab$HbA1C_value > 5.7, "anormale (> 5.7 %)", "normale (≤ 5.7 %)")
+
+# Remarque : setequal(Data_PrevenDiab_sc$Gly_jeun, Data_PrevenDiab_sc$G_GLYCEMIE_à_jeun) == TRUE
+
+# Prévalence Diabète/préDiabète
+Data_PrevenDiab$Diabete <- NA
+Data_PrevenDiab$Diabete[Data_PrevenDiab$Gly_jeun <= 1] <- "Glycémie normale"
+Data_PrevenDiab$Diabete[Data_PrevenDiab$Gly_jeun > 1 & Data_PrevenDiab$Gly_jeun <= 1.10] <- "Prédiabète niveau 1"
+Data_PrevenDiab$Diabete[Data_PrevenDiab$Gly_jeun > 1.10 & Data_PrevenDiab$Gly_jeun <= 1.25] <- "Prédiabète niveau 2"
+Data_PrevenDiab$Diabete[Data_PrevenDiab$Gly_jeun > 1.25] <- "Diabète"
+
+# Création de la variable "Catégories Socio-Professionnelles" - CSP
+Data_PrevenDiab$CSP <- NA
+Data_PrevenDiab$CSP[Data_PrevenDiab$CSP_Agriculteurs %in% 1] <- "Agriculteurs"
+Data_PrevenDiab$CSP[Data_PrevenDiab$CSP_Artisan %in% 1] <- "Artisan"
+Data_PrevenDiab$CSP[Data_PrevenDiab$CSP_cadre %in% 1] <- "Cadre"
+Data_PrevenDiab$CSP[Data_PrevenDiab$CSP_PI %in% 1] <- "Professions intermédiaires"
+Data_PrevenDiab$CSP[Data_PrevenDiab$CSP_employes %in% 1] <- "Employés"
+Data_PrevenDiab$CSP[Data_PrevenDiab$CSP_ouvriers %in% 1] <- "Ouvriers (qualifiés et non qualifiés)"
+Data_PrevenDiab$CSP[Data_PrevenDiab$CSP_retraites %in% 1] <- "Retraités"
+Data_PrevenDiab$CSP[Data_PrevenDiab$CSP_etudiant %in% 1] <- "Autres personnes sans activité professionnelle (demandeur d'emploi, étudiant/élèves de plus de 15 ans...)"
+Data_PrevenDiab$CSP[Data_PrevenDiab$CSP_ND == 1] <- "Non disponible"
+### table(Data_PrevenDiab$CSP, useNA = "ifany")
+
+# Création de la variable "Origine Ethnique" - OE
+Data_PrevenDiab$OE <- NA
+Data_PrevenDiab$OE[Data_PrevenDiab$OE_Caucasien %in% 1] <- "Caucasien"
+Data_PrevenDiab$OE[Data_PrevenDiab$OE_NA %in% 1] <- "Nord-africain"
+Data_PrevenDiab$OE[Data_PrevenDiab$OE_Africain %in% 1] <- "Africain"
+Data_PrevenDiab$OE[Data_PrevenDiab$OE_Asiatique %in% 1] <- "Asiatique"
+Data_PrevenDiab$OE[Data_PrevenDiab$OE_Polynesien %in% 1] <- "Polynésien"
+Data_PrevenDiab$OE[Data_PrevenDiab$OE_Amerindien %in% 1] <- "Amérindien"
+Data_PrevenDiab$OE[Data_PrevenDiab[["OE_Autre(s)"]] %in% 1] <- "Autres"
+Data_PrevenDiab$OE[Data_PrevenDiab$OE_ND %in% 1] <- "Non disponible"
+### table(Data_PrevenDiab$OE, useNA = "ifany")
+
+# Création de la variable "Catégorie Raciale" - CR
+Data_PrevenDiab$CR <- NA
+Data_PrevenDiab$CR[Data_PrevenDiab$CR_Blanche %in% 1] <- "Blanche"
+Data_PrevenDiab$CR[Data_PrevenDiab$CR_Noire %in% 1] <- "Noire"
+Data_PrevenDiab$CR[Data_PrevenDiab$CR_MO %in% 1] <- "Moyen-orientale"
+Data_PrevenDiab$CR[Data_PrevenDiab$CR_EA %in% 1] <- "Est - asiatique"
+Data_PrevenDiab$CR[Data_PrevenDiab$CR_SA %in% 1] <- "Sud - asiatique"
+Data_PrevenDiab$CR[Data_PrevenDiab$CR_ASE %in% 1] <- "Asiatique du Sud-Est"
+Data_PrevenDiab$CR[Data_PrevenDiab$CR_Latino %in% 1] <- "Latino"
+Data_PrevenDiab$CR[Data_PrevenDiab$CR_Autre %in% 1] <- "Autres"
+Data_PrevenDiab$CR[Data_PrevenDiab$CR_ND %in% 1] <- "Non disponible"
+### table(Data_PrevenDiab$CR, useNA = "ifany")
+
+# Création de la variable "Vieillissement accéléré"
+Data_PrevenDiab$Vieillissement <- Data_PrevenDiab$AgeMeta - Data_PrevenDiab$Age
+Data_PrevenDiab$Vieillissement_accelere <- NA
+Data_PrevenDiab$Vieillissement_accelere[Data_PrevenDiab$Vieillissement >= 5] <- "vieillissement accelere (≥ 5)"
+Data_PrevenDiab$Vieillissement_accelere[Data_PrevenDiab$Vieillissement < 5 & Data_PrevenDiab$Vieillissement > (-5)] <- "vieillissement concordant (de -5 à 5)"
+Data_PrevenDiab$Vieillissement_accelere[Data_PrevenDiab$Vieillissement <= (-5)] <- "vieillissement retarde (≤ -5)"
+
+# ----- var correction -----
+
+Data_PrevenDiab$ATCD_Grossesse <- fct_recode(Data_PrevenDiab$ATCD_Grossesse, "Non applicable" = "<NA>", "Non disponible" = "ND")
+# table(Data_PrevenDiab$ATCD_Grossesse, useNA = "ifany")
+# class(Data_PrevenDiab$ATCD_Grossesse)
+# levels(Data_PrevenDiab$ATCD_Grossesse)
+
+```
+
+Certaines variables ont été crée (à partir du plan d'analyse) :
+
++ Gly_jeun_Norm_ANorm : Soit le classement de la glycémie à jeun selon un seuil à 1.0 g/L en "glycémie normale" ou "glycémie anormale".
++ HbA1C_value_Norm_ANorm : Soit le classement de l'hémoglobine glyquée selon un seuil à 5.7% en "hémoglobine glyquée normale" ou "hémoglobine glyquée anormale".
++ Diabete : soit le classement de la glycémie a jeun sur la base de critères diagnostiques de la maladie :
+  + Glycémie normale : glycémie ≤ 1 g/L
+  + Prédiabète niveau 1 : 1 g/L < glycémie ≤ 1.10 g/L
+  + Prédiabète niveau 2 : 1.10 g/L < glycémie ≤ 1.25 g/L
+  + Diabète : glycémie > 1.25 ou diabète connu
++ CSP (catégorie socio-professionnelle) : regroupe en une seule variable les différentes classes (Agriculteurs, Artisan, Cadre, Professions intermédiaires, Employés, Ouvriers, Retraités, Autres personnes sans activité professionnelle)
++ OE (origine ethnique) : regroupe en une seule variable les différentes classes (Caucasien, Nord-africain, Africain, Asiatique, Polynésien, Amérindien, Autres)
++ CR (catégorie raciale)
++ Possibilité de créer une variable "vieillissement", soit la différence entre l'âge biologique et l'âge chronologique :
+  + ≥ 5 : vieillissement acceléré
+  + de -5 à +5 : vieillissement concordant
+  + ≤ -5 : vieillissement retardé   
+
+
+# Statistiques descriptives
+
+Ces statistiques se basent sur le ***plan d'analyse statistique PrevenDIAB*** *(version 1.0 du 01/10/2021)*.  
+
+Qu'on vient appliqué à la population de l'étude cas/témoins.  
+
+```{r Group, echo = FALSE, message = FALSE, warning = FALSE, include = FALSE}
+
+# V1_ON (V1 ; Le patient est-il inclus dans l'étude en sous-groupe ?) : Oui/Non
+table(Data_PrevenDiab$V1_ON)
+# --> inclut dans l'étude en sous-groupe = Oui
+table(Data_PrevenDiab$Participation) # 144 = Etude principale ET etude cas-temoin
+
+Data_PrevenDiab_subset_144 <- subset(Data_PrevenDiab, V1_ON %in% "Oui") # OU subset(Data_PrevenDiab, Participation %in% "Etude principale ET etude cas-temoin")
+stopifnot(table(Data_PrevenDiab_subset_144$V1_ON)[[1]] %in% 144)
+
+# 1 ======================================================================================================================================================
+# Contrôle qualité - liste groupe cas-témoin
+data_liste_cas_temoin_path <- here("data/PrevenDIAB_Liste Cas Témoin.xlsx")
+Data_liste_cas_temoin <- as.data.frame(read_xlsx(data_liste_cas_temoin_path, n_max = 144))
+# Data_liste_cas_temoin
+
+# On va apparier les différents individus, à partir de la liste des cas/témoins
+Data_liste_cas_temoin$Code_V1_apparie <- NA
+Data_liste_cas_temoin$Cas_Temoin_apparie <- NA
+for (i in seq_len(nrow(Data_liste_cas_temoin))) {
+  for (j in seq_len(nrow(Data_liste_cas_temoin))) {
+    if (Data_liste_cas_temoin[i, c("Code Patient")] %in% Data_liste_cas_temoin[j, c("C/T associé")]) {
+      Data_liste_cas_temoin[[j, c("Code_V1_apparie")]] <- Data_liste_cas_temoin[i, c("Code V1")]
+      Data_liste_cas_temoin[[j, c("Cas_Temoin_apparie")]] <- Data_liste_cas_temoin[i, c("Cas/Témoin")]
+    }
+  }
+}
+
+# Vérifications qu'on a bien un témoin associé à chaque cas et inversement.
+for (i in seq_len(nrow(Data_liste_cas_temoin))) {
+  # i <- 3
+  if (Data_liste_cas_temoin[i, c("Cas/Témoin")] %in% "Témoin") {
+    stopifnot(Data_liste_cas_temoin[[i, c("Cas_Temoin_apparie")]] %in% "Cas")
+  } else if (Data_liste_cas_temoin[i, c("Cas/Témoin")] %in% "Cas") {
+    stopifnot(Data_liste_cas_temoin[i, c("Cas_Temoin_apparie")] %in% "Témoin")
+  }
+}
+
+# on y rajoute les identifiants eCRF
+Liste_ID_path <- here("data/PrevenDIAB_BDD Données biologiques_sous groupe_VF.xlsx")
+Data_Liste_ID <- as.data.frame(read_xlsx(Liste_ID_path, sheet = "Liste des patients inclus_CT"))
+
+Data_liste_cas_temoin$Code_Patient_eCRF <- NA
+Data_liste_cas_temoin$Code_Patient_apparie_eCRF <- NA
+for (i in seq_len(nrow(Data_liste_cas_temoin))) {
+  for (j in seq_len(nrow(Data_Liste_ID))) {
+    if (Data_liste_cas_temoin[i, c("Code V1")] %in% Data_Liste_ID[j, c("ID V1 si participation à l'étude en sous groupe")]) {
+      Data_liste_cas_temoin[[i, c("Code_Patient_eCRF")]] <- Data_Liste_ID[j, c("ID eCRF")]
+    }
+    if (Data_liste_cas_temoin[i, c("Code_V1_apparie")] %in% Data_Liste_ID[j, c("ID V1 si participation à l'étude en sous groupe")]) {
+      Data_liste_cas_temoin[[i, c("Code_Patient_apparie_eCRF")]] <- Data_Liste_ID[j, c("ID eCRF")]
+    }
+  }
+}
+
+# On réordonne la table pour avoir : IDs individus / IDs individus appariés
+Data_liste_cas_temoin_clean <- Data_liste_cas_temoin[,
+  c("Code Patient", "Code V1", "Cas/Témoin", "Code_Patient_eCRF", "C/T associé", "Code_V1_apparie", "Cas_Temoin_apparie", "Code_Patient_apparie_eCRF")
+]
+
+#On vérifie qu'on a bien merge nos identifiants avec une autre base
+  # Remarque :
+  # Attention 2 éléménts de Data_PrevenDiab_subset_144$IDpatientV1_Num == 138 (cf : ci-dessous)
+if (FALSE) {
+temp1 <- as.numeric(gsub("PDIAB", "", x = Data_liste_cas_temoin_clean[["Code Patient"]]))
+temp2 <- as.numeric(gsub("V1.", "", gsub("T", "", gsub("C", "", x = Data_liste_cas_temoin[["Code V1"]]))))
+for (i in seq_len(nrow(Data_liste_cas_temoin_clean))) {
+  for (j in seq_len(nrow(Data_PrevenDiab_subset_144))) {
+    if (Data_liste_cas_temoin_clean[i, c("Code_Patient_eCRF")] %in% Data_PrevenDiab_subset_144[j, c("Patient_clean")]) {
+      stopifnot(temp1[i] %in% Data_PrevenDiab_subset_144[j, c("NumPDIAB")])
+      stopifnot(temp2[i] %in% Data_PrevenDiab_subset_144[j, c("IDpatientV1_Num")])
+    }
+  }
+}
+}
+
+
+if (FALSE) {
+  data.table::fwrite(Data_liste_cas_temoin_clean, paste(here("outputs"), paste0("Data_PrevenDiab_list_cas_temoin_clean_", Sys.Date(), ".tsv"), sep = "/"), sep = "\t", na = NA)
+}
+
+# View(Data_liste_cas_temoin_clean)
+
+#============================================================
+
+# on récupère le code identifiant V1 (Code V1) qu'on va ensuite comparer avec le même code (supposé/observé) dans la base (IDpatientV1_Num)
+Patient_nombre_V1_id <- gsub("V1.", "", gsub("T", "", gsub("C", "", x = Data_liste_cas_temoin[["Code V1"]])))
+Data_liste_cas_temoin$ID_patientV1 <- as.numeric(Patient_nombre_V1_id)
+
+sort(as.numeric(Data_PrevenDiab_subset_144$IDpatientV1_Num)) == sort(as.numeric(Data_liste_cas_temoin$ID_patientV1))
+# --> 3 FALSE ressortent, on peut alors remarquer qu'avec IDpatientV1, on a deux fois le code 138 (C & T) et le code 141 manquant
+# --> en comparant avec la liste, le code 138 est associé au Cas, donc le second 138 est peut être en réalité le 141 Témoin ?
+# --> pour les stat desc on va le modifier :
+id_to_change <- which(Data_PrevenDiab_subset_144$IDpatientV1_Num %in% 138 & Data_PrevenDiab_subset_144$IDpatientV1_Lettre %in% "T - Temoin")
+Data_PrevenDiab_subset_144$IDpatientV1_Num[id_to_change] <- 141
+
+
+pouetpouet <- merge(Data_PrevenDiab_subset_144[, c("Patient_clean", "Participation", "Gly_jeun_Norm_ANorm", "IDpatientV1_Num", "IDpatientV1_Lettre")], Data_liste_cas_temoin, by.x = "IDpatientV1_Num", by.y = "ID_patientV1")
+# View(pouetpouet) # dim(pouetpouet) # 144 ind donc ok
+
+
+# On compare les cas et les témoins par rapport à l'id
+pouetpouet$var_comp_1 <- substr(pouetpouet[["Cas/Témoin"]], 1, 1)
+pouetpouet$var_comp_2 <- substr(pouetpouet[["IDpatientV1_Lettre"]], 1, 1)
+stopifnot(table(pouetpouet$var_comp_1 %in% pouetpouet$var_comp_2)[1] %in% 144)
+ifelse(table(pouetpouet$var_comp_1 %in% pouetpouet$var_comp_2)[[1]] %in% 144,
+  c("Les témoins et les cas match entre la base et la liste Cas/Témoins !"),
+  c("Les témoins et les cas ne match pas entre la base et la liste Cas/Témoins !")
+)
+
+
+# on compare les cas et les témoins par rapport à la glycémie à jeun
+stopifnot(setequal(which(pouetpouet[["Gly_jeun_Norm_ANorm"]] %in% "anormale (> 1 g/L)"), which(pouetpouet[["Cas/Témoin"]] %in% "Cas")))
+ifelse(setequal(which(pouetpouet[["Gly_jeun_Norm_ANorm"]] %in% "anormale (> 1 g/L)"), which(pouetpouet[["Cas/Témoin"]] %in% "Cas")),
+  c("Les témoins et les cas match entre la liste Cas/Témoins et la glycémie à jeun !"),
+  c("Les témoins et les cas ne match pas entre la liste Cas/Témoins et la glycémie à jeun !")
+) # En effet, d'après le plan d'analyse, la population des sujets cas est définie par une glycémie altérée et la population des sujets témoins par une glycémie normale
+
+
+
+# groupe "cas" (glycémie altérée) : 72
+# groupe "témoins" (glycémie normale) : 72 x 2
+Data_PrevenDiab_subset_144$Grp_C_T <- NA
+Data_PrevenDiab_subset_144$Grp_C_T <- gsub("C - ", "", gsub("T - ", "",  x = Data_PrevenDiab_subset_144[["IDpatientV1_Lettre"]]))
+table(Data_PrevenDiab_subset_144$Grp_C_T, useNA = "ifany")
+
+# Base prête pour la suite des analyses
+Data_PrevenDiab <- Data_PrevenDiab_subset_144
+
+
+
+```
+
+Pour sélectionner le sous-groupe (cas-témoins), on utilise la variable **V1_ON** *=> Le patient est-il inclus dans l'étude en sous-groupe ? :* ***Oui/Non***    
+Ensuite, afin d'assigner les individus à un groupe (cas ou témoins), on se base sur la glycémie à jeun. 
+
++ Groupe "Cas" : glycémie altérée (> 1 g/L)
++ Groupe "Témoins" : glycémie normale (≤ 1 g/L)  
+
+La base de données réduite au sous-groupe Cas-Témoins a ***`r nrow(Data_PrevenDiab)`*** lignes et ***`r ncol(Data_PrevenDiab)`*** colonnes.   
+
+```{r var & graphs, echo = FALSE, message = FALSE, warning = FALSE}
+
+# Boxplot & histogramme & densité : var continues (et associée à des var catégorielles)
+# Barplot : var catégorielles
+
+```
+
+## Descriptions des sujets {.tabset}
+
+### Critère d'inclusion principaux
+*Déviations au protocole*
+```{r Protocol deviations - inclusion, echo = FALSE, message = FALSE, warning = FALSE}
+#______________________________________________________
+# gtsummary
+
+Data_PrevenDiab %>%
+  tbl_summary(
+    include = c(Pers_Majeur, Exam_prev_sante_IPL, OK_contraintes, Consent_study, Insured_person),
+    label = list(Pers_Majeur = "Personne majeure, homme ou femme",
+      Exam_prev_sante_IPL = "Consultant pour l'examen de prévention santé au Centre d'Examens de Santé de l'IPL",
+      OK_contraintes = "Acceptant de suivre les contraintes engendrées par l'étude",
+      Consent_study = "Ayant signé le consentement éclairé",
+      Insured_person = "Ayant le statut d'assuré social en France"
+    ),
+    missing = "ifany",
+    missing_text = "*Valeurs Manquantes*",
+    by = Grp_C_T
+  ) %>%
+  # add_p() %>%
+  # separate_p_footnotes() %>%
+  # add_n() %>%
+  add_overall() %>%
+  # modify_header(label = "**Variables**") %>%
+  modify_spanning_header(all_stat_cols() ~ "**Critères d'inclusion principaux**") %>%
+  # modify_caption("**Table 1. **") %>%
+  bold_labels()
+
+# ------------------
+
+```
+
+Pour les critères d'inclusion, on souhaite avoir un ***maximum de "oui"***. 
+
+### Critère de non-inclusion principaux
+
+```{r Protocol deviations - no inclusion , echo = FALSE, message = FALSE, warning = FALSE}
+
+Data_PrevenDiab %>%
+  tbl_summary(
+    include = c(Participate_another_study, Deprived_liberty, Prevention_of_consent, Inconsistent_scheduling, State_health_or_treatment_incompatible, DiabConnu),
+    label = list(Participate_another_study = "Sujet participant à une autre étude clinique ou en période d'exclusion d'une autre étude",
+      Deprived_liberty = "Sujet privé de liberté ou sous mesure de protection judiciaire",
+      Prevention_of_consent = "Empêchement du consentement libre et éclairé (compréhension, personnes sous tutelle/curatelle, etc.)",
+      Inconsistent_scheduling = "Planification horaire incompatible",
+      State_health_or_treatment_incompatible = "Dont le médecin investigateur principal ou un co-investigateur qualifié juge que l'état de santé ou les traitements concomitants ne sont pas compatibles avec le bon déroulement de l'étude clinique.",
+      DiabConnu = "Diabète connu"
+    ),
+    missing = "ifany",
+    missing_text = "Valeurs Manquantes",
+    by = Grp_C_T
+  ) %>%
+  # add_n() %>%
+  add_overall() %>%
+  modify_spanning_header(all_stat_cols() ~ "**Critères de non-inclusion principaux**") %>%
+  # modify_caption("**Table 1. **") %>%
+  bold_labels()
+
+```
+
+Tandis que pour les critères de non-inclusion, on souhaite avoir un ***maximum de "non"***.   
+
+**Remarque** : 1 individu semble avoir son statut diabétique connu (Patient : 1-0476)
+
+```{r Crit de non-inclusion principaux - notes, echo = FALSE, message = FALSE, warning = FALSE}
+
+# cf : Data_PrevenDiab[81,"DiabConnu"]
+
+```
+
+
+
+## Données démographiques et autres caractéristiques
+
+### Données démographiques {.tabset}
+
+#### Statistiques descriptives
+```{r Demographics - gtsummary, echo = FALSE, message = FALSE, warning = FALSE}
+#______________________________________________________
+# gtsummary
+
+Data_PrevenDiab %>%
+  tbl_summary(
+    include = c(Age, sexe),
+    label = list(Age = "Age (années)", sexe = "Sexe"),
+    missing = "ifany",
+    missing_text = "Valeurs Manquantes",
+    by = Grp_C_T,
+    type = all_continuous() ~ "continuous2",
+    statistic = list(
+      all_continuous() ~ c("{median} [{p25} ; {p75}]", "{mean} [{min} - {max}]"),
+      all_categorical() ~ c("{n} ({p}%)")
+    )
+  ) %>%
+  add_p() %>%
+  separate_p_footnotes() %>%
+  # add_n() %>%
+  add_overall() %>%
+  modify_spanning_header(all_stat_cols() ~ "**Données démographiques**") %>%
+  # modify_caption("**Table 1. **") %>%
+  bold_labels()
+
+#______________________________________________________
+
+```
+
+#### Boxplot
+
+```{r Demographics - boxplot, echo = FALSE, message = FALSE, warning = FALSE, fig.align='center', fig.dim = c(6, 10)}
+
+# BOXPLOT
+boxplot_Age <- ggplot(Data_PrevenDiab) + geom_boxplot(aes(y = Age, group = Grp_C_T, color = Grp_C_T)) +
+  labs(title = "Variable d'Age", subtitle = "Boxplot") + theme_light() + theme(axis.text.x = element_blank(), axis.ticks = element_blank())
+boxplot_Age_sexe <- ggplot(Data_PrevenDiab) + geom_boxplot(aes(y = Age, x = sexe, color = sexe)) +
+  labs(title = "L'âge en fonction du sexe", subtitle = "Boxplot") + theme_light()
+
+# BARPLOT
+barplot_sexe <- ggplot(Data_PrevenDiab) + geom_bar(aes(y = sexe, group = Grp_C_T, color = Grp_C_T)) +
+  labs(title = "Variable du sexe", subtitle = "Barplot") + theme_light()
+
+(boxplot_Age / barplot_sexe / boxplot_Age_sexe)
+
+# (boxplot_Age + boxplot_Age_sexe + barplot_sexe) + plot_layout(ncol = 2, nrow = 3)
+
+```
+
+#### Densité
+
+```{r Demographics - Density, echo = FALSE, message = FALSE, warning = FALSE, fig.align='center'}
+
+# DENSITE / DISTRIBUTION
+distrib_Age <- ggplot(Data_PrevenDiab) + geom_density(aes(x = Age, fill = Grp_C_T), alpha = 0.5) +
+  geom_vline(aes(xintercept = mean(Age, na.rm = TRUE)), color = "black", size = 0.4, linetype = "dashed" ) +
+  labs(title = "Variable d'Age", subtitle = "Probability density and mean (- - -)") + theme_light()
+
+distrib_Age + plot_layout(ncol = 1, nrow = 3)
+
+```
+
+
+
+### Signes vitaux {.tabset}
+
+#### Statistiques descriptives
+```{r Vital signs - gtsummary, echo = FALSE, message = FALSE, warning = FALSE}
+#______________________________________________________
+# gtsummary
+
+Data_PrevenDiab %>%
+  tbl_summary(
+    include = c(PAD, PAS, FC_repos),
+    label = list(PAD = "Pression artérielle diastolique (mmHg)", PAS = "Pression artérielle systolique (mmHg)", FC_repos = "Fréquence cardiaque au repos (bpm - pulsation/min)"),
+    missing = "ifany",
+    missing_text = "Valeurs Manquantes",
+    by = Grp_C_T,
+    type = all_continuous() ~ "continuous2",
+    statistic = list(
+      all_continuous() ~ c("{median} [{p25} ; {p75}]", "{mean} [{min} - {max}]"),
+      all_categorical() ~ c("{n} ({p}%)")
+    )
+  ) %>%
+  add_p() %>%
+  separate_p_footnotes() %>%
+  # add_n() %>%
+  add_overall() %>%
+  modify_spanning_header(all_stat_cols() ~ "**Signes Vitaux**") %>%
+  # modify_caption("**Table 1. **") %>%
+  bold_labels()
+
+#______________________________________________________
+
+
+```
+
+#### Boxplot
+
+```{r Vital signs - boxplot, echo = FALSE, message = FALSE, warning = FALSE, fig.align='center', fig.dim = c(6, 10)}
+
+# BOXPLOT
+boxplot_PAD <- ggplot(Data_PrevenDiab) + geom_boxplot(aes(y = PAD, group = Grp_C_T, color = Grp_C_T)) +
+  labs(title = "Pression artérielle diastolique en position allongée (PAD) (mmHg)", subtitle = "Boxplot") + theme_light() + theme(axis.text.x = element_blank(), axis.ticks = element_blank())
+boxplot_PAS <- ggplot(Data_PrevenDiab) + geom_boxplot(aes(y = PAS, group = Grp_C_T, color = Grp_C_T)) +
+  labs(title = "Pression artérielle systolique en position allongée (PAS) (mmHg)", subtitle = "Boxplot") + theme_light() + theme(axis.text.x = element_blank(), axis.ticks = element_blank())
+boxplot_FC_repos <- ggplot(Data_PrevenDiab) + geom_boxplot(aes(y = FC_repos, group = Grp_C_T, color = Grp_C_T)) +
+  labs(title = "Fréquence cardiaque au repos (pulsation/min)", subtitle = "Boxplot") + theme_light() + theme(axis.text.x = element_blank(), axis.ticks = element_blank())
+
+(boxplot_PAD / boxplot_PAS / boxplot_FC_repos)
+
+# (boxplot_PAD + boxplot_PAS + boxplot_FC_repos) + plot_layout(ncol = 2, nrow = 3)
+
+```
+
+#### Densité
+
+```{r Vital signs - Density, echo = FALSE, message = FALSE, warning = FALSE, fig.align='center', fig.height = 6}
+
+# DENSITE / DISTRIBUTION
+distrib_PAD <- ggplot(Data_PrevenDiab) + geom_density(aes(x = PAD, fill = Grp_C_T), alpha = 0.5) +
+  geom_vline(aes(xintercept = mean(PAD, na.rm = TRUE)), color = "black", size = 0.4, linetype = "dashed" ) +
+  labs(title = "Pression artérielle diastolique en position allongée (PAD) (mmHg)", subtitle = "Probability density and mean (- - -)") + theme_light()
+distrib_PAS <- ggplot(Data_PrevenDiab) + geom_density(aes(x = PAS, fill = Grp_C_T), alpha = 0.5) +
+  geom_vline(aes(xintercept = mean(PAS, na.rm = TRUE)), color = "black", size = 0.4, linetype = "dashed" ) +
+  labs(title = "Pression artérielle systolique en position allongée (PAS) (mmHg)", subtitle = "Probability density and mean (- - -)") + theme_light()
+distrib_FC_repos <- ggplot(Data_PrevenDiab) + geom_density(aes(x = FC_repos, fill = Grp_C_T), alpha = 0.5) +
+  geom_vline(aes(xintercept = mean(FC_repos, na.rm = TRUE)), color = "black", size = 0.4, linetype = "dashed" ) +
+  labs(title = "Fréquence cardiaque au repos (pulsation/min)", subtitle = "Probability density and mean (- - -)") + theme_light()
+
+distrib_PAD + distrib_PAS + distrib_FC_repos + plot_layout(ncol = 1, nrow = 3)
+
+```
+
+
+
+### Paramètres anthropométriques {.tabset}
+
+***<ins>Remarques </ins>:*** on utilise les variables recueillies à la visite 0 
+
+#### Statistiques descriptives
+```{r Anthropometric parameters - gtsummary, echo = FALSE, message = FALSE, warning = FALSE}
+#______________________________________________________
+# gtsummary
+
+Data_PrevenDiab %>%
+  tbl_summary(
+    include = c(PdsCorporel, taille, IMC, tr_taille, tr_hanche, tr_cou),
+    label = list(PdsCorporel = "Poids (kg)", taille = "Taille (cm)", IMC = "IMC (kg/m²)", tr_taille = "Tour de taille (cm)",
+                 tr_hanche = "Tour de hanche (cm)", tr_cou = "Tour de cou (cm)"),
+    missing = "ifany",
+    missing_text = "Valeurs Manquantes",
+    by = Grp_C_T,
+    type = all_continuous() ~ "continuous2",
+    statistic = list(
+      all_continuous() ~ c("{median} [{p25} ; {p75}]", "{mean} [{min} - {max}]"),
+      all_categorical() ~ c("{n} ({p}%)")
+    )
+  ) %>%
+  add_p() %>%
+  separate_p_footnotes() %>%
+  # add_n() %>%
+  add_overall() %>%
+  modify_spanning_header(all_stat_cols() ~ "**Paramètres anthropométriques**") %>%
+  # modify_caption("**Table 1. **") %>%
+  bold_labels()
+
+
+```
+
+**Remarque** : des individus semblent avoir des valeurs manquantes (Patient : 1-1509 ; 1-0227, 1-0277)
+
+```{r Paramètres anthropométriques - notes, echo = FALSE, message = FALSE, warning = FALSE}
+
+# cf : Data_PrevenDiab[144,"PdsCorporel"] ; Data_PrevenDiab[144,"IMC"] ; Data_PrevenDiab[40,"tr_cou"] ; Data_PrevenDiab[50,"tr_cou"]
+
+# Pour retrouver les identifiants :
+# Data_PrevenDiab[ XX ,1]
+
+
+```
+
+#### BoxPlot
+```{r Anthropometric parameters - boxplot, echo = FALSE, message = FALSE, warning = FALSE, fig.align='center', fig.dim = c(6, 20)}
+
+# BOXPLOT
+boxplot_PdsCorporel <- ggplot(Data_PrevenDiab) + geom_boxplot(aes(y = PdsCorporel, group = Grp_C_T, color = Grp_C_T)) + labs(title = "Poids (kg)", subtitle = "Boxplot") + theme_light() + theme(axis.text.x = element_blank(), axis.ticks = element_blank())
+boxplot_taille <- ggplot(Data_PrevenDiab) + geom_boxplot(aes(y = taille, group = Grp_C_T, color = Grp_C_T)) + labs(title = "Taille (cm)", subtitle = "Boxplot") + theme_light() + theme(axis.text.x = element_blank(), axis.ticks = element_blank())
+boxplot_IMC <- ggplot(Data_PrevenDiab) + geom_boxplot(aes(y = IMC, group = Grp_C_T, color = Grp_C_T)) + labs(title = "IMC (kg/m²)", subtitle = "Boxplot") + theme_light() + theme(axis.text.x = element_blank(), axis.ticks = element_blank())
+boxplot_tr_taille <- ggplot(Data_PrevenDiab) + geom_boxplot(aes(y = tr_taille, group = Grp_C_T, color = Grp_C_T)) + labs(title = "Tour de taille (cm)", subtitle = "Boxplot") + theme_light() + theme(axis.text.x = element_blank(), axis.ticks = element_blank())
+boxplot_tr_hanche <- ggplot(Data_PrevenDiab) + geom_boxplot(aes(y = tr_hanche, group = Grp_C_T, color = Grp_C_T)) + labs(title = "Tour de hanche (cm)", subtitle = "Boxplot") + theme_light() + theme(axis.text.x = element_blank(), axis.ticks = element_blank())
+boxplot_tr_cou <- ggplot(Data_PrevenDiab) + geom_boxplot(aes(y = tr_cou, group = Grp_C_T, color = Grp_C_T)) + labs(title = "Tour de cou (cm)", subtitle = "Boxplot") + theme_light() + theme(axis.text.x = element_blank(), axis.ticks = element_blank())
+
+(boxplot_PdsCorporel / boxplot_taille / boxplot_IMC / boxplot_tr_taille / boxplot_tr_hanche / boxplot_tr_cou)
+
+# (boxplot_PdsCorporel + boxplot_taille + boxplot_IMC + boxplot_tr_taille + boxplot_tr_hanche + boxplot_tr_cou) + plot_layout(ncol = 2, nrow = 3)
+
+```
+
+#### Densité
+```{r Anthropometric parameters - Density, echo = FALSE, message = FALSE, warning = FALSE, fig.align='center', fig.height = 12}
+
+# DENSITE / DISTRIBUTION
+distrib_PdsCorporel <- ggplot(Data_PrevenDiab) + geom_density(aes(x = PdsCorporel, fill = Grp_C_T), alpha = 0.5) +
+  geom_vline(aes(xintercept = mean(PdsCorporel, na.rm = TRUE)), color = "black", size = 0.4, linetype = "dashed" ) +
+  labs(title = "Poids (kg)", subtitle = "Probability density and mean (- - -)") + theme_light()
+distrib_taille <- ggplot(Data_PrevenDiab) + geom_density(aes(x = taille, fill = Grp_C_T), alpha = 0.5) +
+  geom_vline(aes(xintercept = mean(taille, na.rm = TRUE)), color = "black", size = 0.4, linetype = "dashed" ) +
+  labs(title = "Taille (cm)", subtitle = "Probability density and mean (- - -)") + theme_light()
+distrib_IMC <- ggplot(Data_PrevenDiab) + geom_density(aes(x = IMC, fill = Grp_C_T), alpha = 0.5) +
+  geom_vline(aes(xintercept = mean(IMC, na.rm = TRUE)), color = "black", size = 0.4, linetype = "dashed" ) +
+  labs(title = "IMC (kg/m²)", subtitle = "Probability density and mean (- - -)") + theme_light()
+distrib_tr_taille <- ggplot(Data_PrevenDiab) + geom_density(aes(x = tr_taille, fill = Grp_C_T), alpha = 0.5) +
+  geom_vline(aes(xintercept = mean(tr_taille, na.rm = TRUE)), color = "black", size = 0.4, linetype = "dashed" ) +
+  labs(title = "Tour de taille (cm)", subtitle = "Probability density and mean (- - -)") + theme_light()
+distrib_tr_hanche <- ggplot(Data_PrevenDiab) + geom_density(aes(x = tr_hanche, fill = Grp_C_T), alpha = 0.5) +
+  geom_vline(aes(xintercept = mean(tr_hanche, na.rm = TRUE)), color = "black", size = 0.4, linetype = "dashed" ) +
+  labs(title = "Tour de hanche (cm)", subtitle = "Probability density and mean (- - -)") + theme_light()
+distrib_tr_cou <- ggplot(Data_PrevenDiab) + geom_density(aes(x = tr_cou, fill = Grp_C_T), alpha = 0.5) +
+  geom_vline(aes(xintercept = mean(tr_cou, na.rm = TRUE)), color = "black", size = 0.4, linetype = "dashed" ) +
+  labs(title = "Tour de cou (cm)", subtitle = "Probability density and mean (- - -)") + theme_light()
+
+distrib_PdsCorporel + distrib_taille + distrib_IMC + distrib_tr_taille + distrib_tr_hanche + distrib_tr_cou + plot_layout(ncol = 1, nrow = 6)
+
+```
+
+
+### Paramètres cliniques et paracliniques {.tabset}
+
+#### Statistiques descriptives
+```{r Clinical and paraclinical parameters - gtsummary, echo = FALSE, message = FALSE, warning = FALSE}
+# ______________________________________________________
+# gtsummary
+
+Data_PrevenDiab %>%
+  tbl_summary(
+    include = c(GraisseCorp, "MasseMuscu%", MasseOsseuse_percent, AU_YOJD, AU_YOJG, AU_YFJD, AU_YFJG, Etat_FM, Res_FM, ETAT_AR, ResAGEreader_U),
+    label = list(GraisseCorp = "Résultat de l'impédancemétrie : Masse grasse (%)",
+      "MasseMuscu%" = "Résultat de l'impédancemétrie : Masse musculaire (%)",
+      MasseOsseuse_percent = "Résultat de l'impédancemétrie : Masse osseuse (%)",
+      AU_YOJD = "Appui monopodal (secondes) - Yeux ouverts/Jambe droite",
+      AU_YOJG = "Appui monopodal (secondes) - Yeux ouverts/Jambe gauche",
+      AU_YFJD = "Appui monopodal (secondes) - Yeux fermés/Jambe droite",
+      AU_YFJG = "Appui monopodal (secondes) - Yeux fermés/Jambe gauche",
+      Etat_FM = "Force musculaire - HANDGRIPTEST", Res_FM = "Force musculaire - HANDGRIPTEST (kg)",
+      ETAT_AR = "AGE-reader", ResAGEreader_U = "AGE-reader (U)"),
+    missing = "ifany",
+    missing_text = "Valeurs Manquantes",
+    by = Grp_C_T,
+    type = list(AU_YOJD ~ "continuous2", AU_YOJG ~ "continuous2", AU_YFJD ~ "continuous2", AU_YFJG ~ "continuous2", ResAGEreader_U ~ "continuous2", all_continuous() ~ "continuous2"),
+    statistic = list(
+      all_continuous() ~ c("{median} [{p25} ; {p75}]", "{mean} [{min} - {max}]"),
+      all_categorical() ~ c("{n} ({p}%)")
+    )
+  ) %>%
+  add_p() %>%
+  separate_p_footnotes() %>%
+  # add_n() %>%
+  add_overall() %>%
+  modify_spanning_header(all_stat_cols() ~ "**Paramètres cliniques et paracliniques**") %>%
+  # modify_caption("**Table 1. **") %>%
+  bold_labels()
+
+
+```
+
+
+#### Boxplot
+
+```{r Clinical and paraclinical parameters - boxplot, echo = FALSE, message = FALSE, warning = FALSE, fig.align='center', fig.dim = c(6, 16.6)}
+
+# BOXPLOT
+boxplot_GraisseCorp <- ggplot(Data_PrevenDiab) + geom_boxplot(aes(y = GraisseCorp, group = Grp_C_T, color = Grp_C_T)) + labs(title = "Résultat de l'impédancemétrie : Masse grasse (%)", subtitle = "Boxplot") + theme_light() + theme(axis.text.x = element_blank(), axis.ticks = element_blank())
+boxplot_MasseMuscu <- ggplot(Data_PrevenDiab) + geom_boxplot(aes(y = Data_PrevenDiab[["MasseMuscu%"]], group = Grp_C_T, color = Grp_C_T)) + labs(title = "Résultat de l'impédancemétrie : Masse musculaire (%)", subtitle = "Boxplot") + theme_light() + theme(axis.text.x = element_blank(), axis.ticks = element_blank())
+boxplot_MasseOsseuse_percent <- ggplot(Data_PrevenDiab) + geom_boxplot(aes(y = MasseOsseuse_percent, group = Grp_C_T, color = Grp_C_T)) + labs(title = "Résultat de l'impédancemétrie : Masse osseuse (%)", subtitle = "Boxplot") + theme_light() + theme(axis.text.x = element_blank(), axis.ticks = element_blank())
+boxplot_Res_FM <- ggplot(Data_PrevenDiab) + geom_boxplot(aes(y = Res_FM, group = Grp_C_T, color = Grp_C_T)) + labs(title = "Force musculaire - HANDGRIPTEST (kg)", subtitle = "Boxplot") + theme_light() + theme(axis.text.x = element_blank(), axis.ticks = element_blank())
+boxplot_ResAGEreader_U <- ggplot(Data_PrevenDiab) + geom_boxplot(aes(y = ResAGEreader_U, group = Grp_C_T, color = Grp_C_T)) + labs(title = "AGE-reader (U)", subtitle = "Boxplot") + theme_light() + theme(axis.text.x = element_blank(), axis.ticks = element_blank())
+
+(boxplot_GraisseCorp / boxplot_MasseMuscu / boxplot_MasseOsseuse_percent / boxplot_Res_FM / boxplot_ResAGEreader_U) #+ plot_layout(ncol = 2, nrow = 3)
+
+# (boxplot_GraisseCorp + boxplot_MasseMuscu + boxplot_MasseOsseuse_percent + boxplot_Res_FM + boxplot_ResAGEreader_U) + plot_layout(ncol = 2, nrow = 3)
+
+```
+
+
+#### Densité
+
+```{r Clinical and paraclinical parameters - density, echo = FALSE, message = FALSE, warning = FALSE, fig.align='center', fig.height = 10}
+
+# DENSITE / DISTRIBUTION
+distrib_GraisseCorp <- ggplot(Data_PrevenDiab) + geom_density(aes(x = GraisseCorp, fill = Grp_C_T), alpha = 0.5) +
+  geom_vline(aes(xintercept = mean(GraisseCorp, na.rm = TRUE)), color = "black", size = 0.4, linetype = "dashed" ) +
+  labs(title = "Résultat de l'impédancemétrie : Masse grasse (%)", subtitle = "Probability density and mean (- - -)") + theme_light()
+distrib_MasseMuscu <- ggplot(Data_PrevenDiab) + geom_density(aes(x = Data_PrevenDiab[["MasseMuscu%"]], fill = Grp_C_T), alpha = 0.5) +
+  geom_vline(aes(xintercept = mean(Data_PrevenDiab[["MasseMuscu%"]], na.rm = TRUE)), color = "black", size = 0.4, linetype = "dashed" ) +
+  labs(title = "Résultat de l'impédancemétrie : Masse musculaire (%)", subtitle = "Probability density and mean (- - -)") + theme_light()
+distrib_MasseOsseuse_percent <- ggplot(Data_PrevenDiab) + geom_density(aes(x = MasseOsseuse_percent, fill = Grp_C_T), alpha = 0.5) +
+  geom_vline(aes(xintercept = mean(MasseOsseuse_percent, na.rm = TRUE)), color = "black", size = 0.4, linetype = "dashed" ) +
+  labs(title = "Résultat de l'impédancemétrie : Masse osseuse (%)", subtitle = "Probability density and mean (- - -)") + theme_light()
+distrib_Res_FM <- ggplot(Data_PrevenDiab) + geom_density(aes(x = Res_FM, fill = Grp_C_T), alpha = 0.5) +
+  geom_vline(aes(xintercept = mean(Res_FM, na.rm = TRUE)), color = "black", size = 0.4, linetype = "dashed" ) +
+  labs(title = "Force musculaire - HANDGRIPTEST (kg)", subtitle = "Probability density and mean (- - -)") + theme_light()
+distrib_ResAGEreader_U <- ggplot(Data_PrevenDiab) + geom_density(aes(x = ResAGEreader_U, fill = Grp_C_T), alpha = 0.5) +
+  geom_vline(aes(xintercept = mean(ResAGEreader_U, na.rm = TRUE)), color = "black", size = 0.4, linetype = "dashed" ) +
+  labs(title = "AGE-reader (U)", subtitle = "Probability density and mean (- - -)") + theme_light()
+
+distrib_GraisseCorp + distrib_MasseMuscu + distrib_MasseOsseuse_percent + distrib_Res_FM + distrib_ResAGEreader_U + plot_layout(ncol = 1, nrow = 5)
+
+```
+
+
+### Paramètres biologiques {.tabset}
+
+#### Statistiques descriptives
+
+```{r Biological parameters - gtsummary, echo = FALSE, message = FALSE, warning = FALSE}
+#______________________________________________________
+# gtsummary
+
+Data_PrevenDiab %>%
+  tbl_summary(
+    include = c(Gly_jeun, Gly_jeun_Norm_ANorm, HbA1C_value, HbA1C_value_Norm_ANorm),
+    label = list(Gly_jeun = "Glycémie à jeun (g/L)",
+      Gly_jeun_Norm_ANorm = "Glycémie à jeun (valeur normale/anormale)",
+      HbA1C_value = "Hémoglobine glyquée - HbA1C (%)",
+      HbA1C_value_Norm_ANorm = "Hémoglobine glyquée - HbA1C (valeur normale/anormale)"),
+    missing = "ifany",
+    missing_text = "Valeurs Manquantes",
+    by = Grp_C_T,
+    type = all_continuous() ~ "continuous2",
+    statistic = list(
+      all_continuous() ~ c("{median} [{p25} ; {p75}]", "{mean} [{min} - {max}]"),
+      all_categorical() ~ c("{n} ({p}%)")
+    )
+  ) %>%
+  add_p() %>%
+  separate_p_footnotes() %>%
+  # add_n() %>%
+  add_overall() %>%
+  modify_spanning_header(all_stat_cols() ~ "**Paramètres biologiques**") %>%
+  # modify_caption("**Table 1. **") %>%
+  bold_labels()
+
+```
+
+#### Boxplot
+
+```{r Biological parameters - boxplot, echo = FALSE, message = FALSE, warning = FALSE, fig.align='center', fig.dim = c(6, 6.7)}
+
+# BOXPLOT
+boxplot_Gly_jeun <- ggplot(Data_PrevenDiab) + geom_boxplot(aes(y = Gly_jeun, group = Grp_C_T, color = Grp_C_T)) + labs(title = "Glycémie à jeun (g/L)", subtitle = "Boxplot") + theme_light() + theme(axis.text.x = element_blank(), axis.ticks = element_blank())
+boxplot_HbA1C_value <- ggplot(Data_PrevenDiab) + geom_boxplot(aes(y = HbA1C_value, group = Grp_C_T, color = Grp_C_T)) + labs(title = "Hémoglobine glyquée - HbA1C (%)", subtitle = "Boxplot") + theme_light() + theme(axis.text.x = element_blank(), axis.ticks = element_blank())
+
+(boxplot_Gly_jeun / boxplot_HbA1C_value)
+
+# (boxplot_Gly_jeun + boxplot_HbA1C_value) + plot_layout(ncol = 2, nrow = 3)
+
+```
+
+
+#### Densité
+
+```{r Biological parameters - density, echo = FALSE, message = FALSE, warning = FALSE, fig.align='center'}
+
+# DENSITE / DISTRIBUTION
+distrib_Gly_jeun <- ggplot(Data_PrevenDiab) + geom_density(aes(x = Gly_jeun, fill = Grp_C_T), alpha = 0.5) +
+  geom_vline(aes(xintercept = mean(Gly_jeun, na.rm = TRUE)), color = "black", size = 0.4, linetype = "dashed" ) +
+  labs(title = "Glycémie à jeun (g/L)", subtitle = "Probability density and mean (- - -)") + theme_light()
+distrib_HbA1C_value <- ggplot(Data_PrevenDiab) + geom_density(aes(x = HbA1C_value, fill = Grp_C_T), alpha = 0.5) +
+  geom_vline(aes(xintercept = mean(HbA1C_value, na.rm = TRUE)), color = "black", size = 0.4, linetype = "dashed" ) +
+  labs(title = "Hémoglobine glyquée - HbA1C (%)", subtitle = "Probability density and mean (- - -)") + theme_light()
+
+(distrib_Gly_jeun + distrib_HbA1C_value) + plot_layout(ncol = 1, nrow = 3)
+
+```
+
+### Marqueur de vieillissement - Age Métabolique {.tabset}
+
+#### Statistiques descriptives
+```{r Metabolic age - gtsummary, echo = FALSE, message = FALSE, warning = FALSE}
+#______________________________________________________
+# gtsummary
+
+Data_PrevenDiab %>%
+  tbl_summary(
+    include = c(AgeMeta, Age),
+    label = list(AgeMeta = "Age métabolique (années)", Age = "Age (années)"),
+    missing = "ifany",
+    missing_text = "Valeurs Manquantes",
+    by = Grp_C_T,
+    type = all_continuous() ~ "continuous2",
+    statistic = list(
+      all_continuous() ~ c("{median} [{p25} ; {p75}]", "{mean} [{min} - {max}]"),
+      all_categorical() ~ c("{n} ({p}%)")
+    )
+  ) %>%
+  add_p() %>%
+  separate_p_footnotes() %>%
+  # add_n() %>%
+  add_overall() %>%
+  modify_spanning_header(all_stat_cols() ~ "**Comparaison Age métabolique - marqueur de vieillissement - Age Métabolique**") %>%
+  # modify_caption("**Table 1. **") %>%
+  bold_labels()
+
+
+
+```
+
+#### Boxplot
+
+```{r Metabolic age - boxplot, echo = FALSE, message = FALSE, warning = FALSE, fig.align='center', fig.dim = c(6, 6.7)}
+
+# BOXPLOT
+boxplot_AgeMeta <- ggplot(Data_PrevenDiab) + geom_boxplot(aes(y = AgeMeta, group = Grp_C_T, color = Grp_C_T)) + labs(title = "Age métabolique (années)", subtitle = "Boxplot") + theme_light() + theme(axis.text.x = element_blank(), axis.ticks = element_blank())
+
+(boxplot_AgeMeta / boxplot_Age)
+
+# (boxplot_AgeMeta + boxplot_Age) + plot_layout(ncol = 2, nrow = 3)
+
+```
+
+
+#### Densité
+
+```{r Metabolic age - density, echo = FALSE, message = FALSE, warning = FALSE, fig.align='center'}
+
+# DENSITE / DISTRIBUTION
+distrib_AgeMeta <- ggplot(Data_PrevenDiab) + geom_density(aes(x = AgeMeta, fill = Grp_C_T), alpha = 0.5) +
+  geom_vline(aes(xintercept = mean(AgeMeta, na.rm = TRUE)), color = "black", size = 0.4, linetype = "dashed" ) +
+  labs(title = "Age métabolique (années)", subtitle = "Probability density and mean (- - -)") + theme_light()
+
+
+distrib_AgeMeta + distrib_Age + plot_layout(ncol = 1, nrow = 3)
+
+```
+
+
+### Traitements antérieurs et antécédents médicaux
+
+```{r Previous treatments and medical history, echo = FALSE, message = FALSE, warning = FALSE}
+#______________________________________________________
+# gtsummary
+
+Data_PrevenDiab %>%
+  tbl_summary(
+    include = c(AP_covid_ON, VaccinationCOVID_ON, AP_Prematurite_ON, AP_GrossEnCours_ON, ATCD_Grossesse, AP_GrossDG_ON, AP_OvPoly_ON,
+      AP_Hyperandrogenie_ON, AP_Menopause_ON, AP_HTA_ON, AP_IAM_ON, AP_AVC_ON, AP_autreMCV_ON, AP_HyperCHL_ON, AP_HTGD_ON, AP_PD_ON,
+      AP_DC_ON, AP_DC_ComVas_ON, AP_DC_ComNeu_ON, AP_IRC_ON, AP_SH_ON, AP_TI_ON, AP_TI_Dyspepsie_ON, AP_TI_Diarrhee_ON, AP_TI_Constipation_ON,
+      AP_TI_RG_ON, AP_DouChron_ON, AP_DouChron_Muscu_ON, AP_DouChron_Arti_ON, AP_DouChron_Neuro_ON, AP_DouChron_Migraine_ON, AP_Apnee_ON,
+      AP_Apnee_Appareillage_ON, AP_DeficitAuditif_ON, AP_DeficitVisuel_loin, AP_DeficitVisuel_pres),
+    label = list(AP_covid_ON = "a eu COVID", VaccinationCOVID_ON = "Vaccination contre le COVID", AP_Prematurite_ON = "né(e) prématuré(e)",
+      AP_GrossEnCours_ON = "Grossesse actuelle", ATCD_Grossesse = "Nombre de grossesse au cours de la vie", AP_GrossDG_ON = "Grossesse avec diabète gestationnel",
+      AP_OvPoly_ON = "Ovaire polykystique", AP_Hyperandrogenie_ON = "Hyperandrogénie", AP_Menopause_ON = "Ménopause", AP_HTA_ON = "HTA",
+      AP_IAM_ON = "IAM", AP_AVC_ON = "AVC", AP_autreMCV_ON = "Autre MCV", AP_HyperCHL_ON = "Hypercholestérolémie", AP_HTGD_ON = "Hypertriglycéridémie",
+      AP_PD_ON = "Pré diabète", AP_DC_ON = "Diabète connu", AP_DC_ComVas_ON = "Complications vasculaires", AP_DC_ComNeu_ON = "Complications neurologiques",
+      AP_IRC_ON = "Insuffisance rénale chronique", AP_SH_ON = "Stéatose hépatique non alcoolique", AP_TI_ON = "Troubles gastro-intestinaux",
+      AP_TI_Dyspepsie_ON = "Dyspepsie", AP_TI_Diarrhee_ON = "Diarrhée", AP_TI_Constipation_ON = "Constipation", AP_TI_RG_ON = "Reflux gastrique",
+      AP_DouChron_ON = "Douleur(s) chronique(s)", AP_DouChron_Muscu_ON = "Douleur(s) chronique(s) Musculaire(s)", AP_DouChron_Arti_ON = "Douleur(s) chronique(s) Articulaire(s)",
+      AP_DouChron_Neuro_ON = "Douleur(s) chronique(s) neurologique(s)", AP_DouChron_Migraine_ON = "Douleur(s) chronique(s) migraine(s)", AP_Apnee_ON = "Apnée du sommeil",
+      AP_Apnee_Appareillage_ON = "Apnée du sommeil - appareillage", AP_DeficitAuditif_ON = "Déficit auditif (hypoacousie) après correction",
+      AP_DeficitVisuel_loin = "Déficit acuité visuelle (si corrigé, après correction) de loin", AP_DeficitVisuel_pres = "Déficit acuité visuelle (si corrigé, après correction) de près"),
+    missing = "ifany",
+    missing_text = "Valeurs Manquantes",
+    type = all_continuous() ~ "continuous2",
+    statistic = list(
+      all_continuous() ~ c("{median} [{p25} ; {p75}]", "{mean} [{min} - {max}]"),
+      all_categorical() ~ c("{n} ({p}%)")
+    )
+  ) %>%
+  # add_n() %>%
+  modify_spanning_header(all_stat_cols() ~ "**Traitements antérieurs et antécédents médicaux**") %>%
+  # modify_caption("**Table 1. **") %>%
+  bold_labels()
+
+#______________________________________________________
+
+```
+
+
+### Traitements concomitants
+
+```{r Concomitant treatments, echo = FALSE, message = FALSE, warning = FALSE}
+#______________________________________________________
+# gtsummary
+
+Data_PrevenDiab %>%
+  tbl_summary(
+    include = c(Med_ON, State_health_or_treatment_incompatible),
+    label = list(Med_ON = "Prise de médicament(s)",
+      State_health_or_treatment_incompatible = "Etat de santé et/ou traitements concomitants jugé(s) incompatible(s) avec le bon déroulement de l'étude par le médecin investigateur ou co-investigateur"),
+    missing = "ifany",
+    missing_text = "Valeurs Manquantes",
+    by = Grp_C_T,
+    type = all_continuous() ~ "continuous2",
+    statistic = list(
+      all_continuous() ~ c("{median} [{p25} ; {p75}]", "{mean} [{min} - {max}]"),
+      all_categorical() ~ c("{n} ({p}%)")
+    )
+  ) %>%
+  add_p() %>%
+  separate_p_footnotes() %>%
+  # add_n() %>%
+  add_overall() %>%
+  modify_spanning_header(all_stat_cols() ~ "**Traitements concomitants**") %>%
+  # modify_caption("**Table 1. **") %>%
+  bold_labels()
+
+```
+
+
+## Analyse du critère principal
+
+### Prévalence de diabète et de prédiabète {.tabset}
+
+#### Prévalence sur toute la population 
+```{r Prevalence of diabetes and prediabetes - by grp, echo = FALSE, message = FALSE, warning = FALSE}
+#______________________________________________________
+# gtsummary
+
+Data_PrevenDiab %>%
+  tbl_summary(
+    include = c(Gly_jeun, Diabete),
+    label = list(Gly_jeun = "Glycémie à jeun (g/L)"),
+    missing = "ifany",
+    missing_text = "Valeurs Manquantes",
+    by = Grp_C_T,
+    type = all_continuous() ~ "continuous2",
+    statistic = list(
+      all_continuous() ~ c("{median} [{p25} ; {p75}]", "{mean} [{min} - {max}]"),
+      all_categorical() ~ c("{n} ({p}%)")
+    )
+  ) %>%
+  add_p() %>%
+  separate_p_footnotes() %>%
+  # add_n() %>%
+  add_overall() %>%
+  modify_spanning_header(all_stat_cols() ~ "**Prévalence de diabète et de prédiabète**") %>%
+  # modify_caption("**Table 1. **") %>%
+  bold_labels()
+
+```
+
+#### Prévalence par Catégories socio-économique-culturelle
+```{r Prevalence of diabetes and prediabetes - crit SEC, echo = FALSE, message = FALSE, warning = FALSE}
+#______________________________________________________
+# gtsummary
+
+Data_PrevenDiab %>%
+  tbl_summary(
+    include = c(ScoreEPICES),
+    label = list(ScoreEPICES = "Score EPICES"),
+    by = Grp_C_T,
+    missing = "ifany",
+    missing_text = "Valeurs Manquantes",
+    type = all_continuous() ~ "continuous2",
+    statistic = list(
+      all_continuous() ~ c("{median}", "[{p0} ; {p20}[", "[{p20} ; {p40}[", "[{p40} ; {p60}[", "[{p60} ; {p80}[", "[{p80} ; {p100}[", "{mean} [{min} - {max}]"),
+      all_categorical() ~ c("{n} ({p}%)")
+    )
+  ) %>%
+  # add_n() %>%
+  add_p() %>%
+  separate_p_footnotes() %>%
+  add_overall() %>%
+  modify_spanning_header(all_stat_cols() ~ "**Prévalence de diabète et de prédiabète**") %>%
+  # modify_caption("**Table 1. **") %>%
+  bold_labels()
+
+
+
+```
+
+Le score EPICES est lié aux indicateurs de niveau socio-économique, de comportements et de santé.  
+Le seuil de 30 est considéré comme le seuil de précarité selon EPICES.  
+
+#### Prévalence du diabète - calcul
+
+```{r Prevalence of diabete - calcul, echo = FALSE, message = FALSE, warning = FALSE, include=FALSE}
+
+# Calcul de la Prévalence #
+## Prévalence de Diabète :
+Preval_diabete <- sum(ifelse(Data_PrevenDiab$Diabete == "Diabète", 1, 0), na.rm = TRUE) / nrow(Data_PrevenDiab)
+Preval_diabete
+Preval_diabete * 100 # = 2.777778% de prévalence
+## C
+Preval_diabete_C <- sum(ifelse(Data_PrevenDiab$Grp_C_T == "Cas" & Data_PrevenDiab$Diabete == "Diabète", 1, 0), na.rm = TRUE) / sum(Data_PrevenDiab$Grp_C_T == "Cas")
+## T
+Preval_diabete_T <- sum(ifelse(Data_PrevenDiab$Grp_C_T == "Témoins" & Data_PrevenDiab$Diabete == "Diabète", 1, 0), na.rm = TRUE) / sum(Data_PrevenDiab$Grp_C_T == "Témoins")
+
+
+## Prévalence de Pré-Diabète :
+Preval_prediabete <- sum(ifelse(Data_PrevenDiab$Diabete == "Prédiabète niveau 1" | Data_PrevenDiab$Diabete == "Prédiabète niveau 2", 1, 0), na.rm = TRUE) / nrow(Data_PrevenDiab)
+Preval_prediabete
+Preval_prediabete * 100 # = 47.22222% de prévalence
+## C
+Preval_prediabete_C <- sum(ifelse(Data_PrevenDiab$Grp_C_T == "Cas" & Data_PrevenDiab$Diabete == "Prédiabète niveau 1" | Data_PrevenDiab$Grp_C_T == "Cas" & Data_PrevenDiab$Diabete == "Prédiabète niveau 2", 1, 0), na.rm = TRUE) / sum(Data_PrevenDiab$Grp_C_T == "Cas")
+## T
+Preval_prediabete_T <- sum(ifelse(Data_PrevenDiab$Grp_C_T == "Témoins" & Data_PrevenDiab$Diabete == "Prédiabète niveau 1" | Data_PrevenDiab$Grp_C_T == "Témoins" & Data_PrevenDiab$Diabete == "Prédiabète niveau 2", 1, 0), na.rm = TRUE) / sum(Data_PrevenDiab$Grp_C_T == "Témoins")
+
+
+```
+
+La **prévalence du diabète** est de ***`r round(Preval_diabete*100, 2)`*** %.   
+
+  + Pour les cas, elle est de ***`r round(Preval_diabete_C*100, 2)`*** %.
+  + Et pour les témoins, de ***`r round(Preval_diabete_T*100, 2)`*** %.  
+
+
+La **prévalence du prédiabète** est de ***`r round(Preval_prediabete*100, 2)`*** %.  
+
+  + Pour les cas, elle est de ***`r round(Preval_prediabete_C*100, 2)`*** %.
+  + Et pour les témoins, de ***`r round(Preval_prediabete_T*100, 2)`*** %.  
+
+
+### Prévalence de vieillissement accéléré {.tabset}
+
+#### Prévalence sur la sous-population Cas-Témoins
+
+```{r Prevalence of accelerated aging, echo = FALSE, message = FALSE, warning = FALSE}
+#______________________________________________________
+# gtsummary
+
+Data_PrevenDiab %>%
+  tbl_summary(
+    include = c(Vieillissement, Vieillissement_accelere),
+    label = list(Vieillissement = "Vieillissement (Age Métabolique - Age réel)", Vieillissement_accelere = "Vieillissement accéléré"),
+    missing = "ifany",
+    missing_text = "Valeurs Manquantes",
+    by = Grp_C_T,
+    type = list(Vieillissement ~ "continuous2", all_continuous() ~ "continuous2"),
+    statistic = list(
+      all_continuous() ~ c("{median} [{p25} ; {p75}]", "{mean} [{min} - {max}]"),
+      all_categorical() ~ c("{n} ({p}%)")
+    )
+  ) %>%
+  add_p() %>%
+  separate_p_footnotes() %>%
+  # add_n() %>%
+  add_overall() %>%
+  modify_spanning_header(all_stat_cols() ~ "**Prévalence de vieillissement accéléré**") %>%
+  # modify_caption("**Table 1. **") %>%
+  bold_labels()
+
+#______________________________________________________
+```
+
+
+#### Prévalence du vieillissement accéléré - calcul
+
+```{r Prevalence of accelerated aging - calcul, echo = FALSE, message = FALSE, warning = FALSE, include=FALSE}
+# Calcul de la Prévalence #
+## Prévalence de vieillissement accéléré :
+Preval_acc_aging <- sum(ifelse(Data_PrevenDiab$Vieillissement_accelere == "vieillissement accelere (≥ 5)", 1, 0), na.rm = TRUE) / nrow(Data_PrevenDiab)
+Preval_acc_aging
+Preval_acc_aging * 100 # = 46.52778% de prévalence
+## C
+Preval_acc_aging_C <- sum(ifelse(Data_PrevenDiab$Grp_C_T == "Cas" & Data_PrevenDiab$Vieillissement_accelere == "vieillissement accelere (≥ 5)", 1, 0), na.rm = TRUE) / sum(Data_PrevenDiab$Grp_C_T == "Cas")
+## T
+Preval_acc_aging_T <- sum(ifelse(Data_PrevenDiab$Grp_C_T == "Témoins" & Data_PrevenDiab$Vieillissement_accelere == "vieillissement accelere (≥ 5)", 1, 0), na.rm = TRUE) / sum(Data_PrevenDiab$Grp_C_T == "Témoins")
+
+
+## Prévalence de vieillissement retardé :
+Preval_late_aging <- sum(ifelse(Data_PrevenDiab$Vieillissement_accelere == "vieillissement retarde (≤ -5)", 1, 0), na.rm = TRUE) / nrow(Data_PrevenDiab)
+Preval_late_aging
+Preval_late_aging * 100 # = 31.94444% de prévalence
+## C
+Preval_late_aging_C <- sum(ifelse(Data_PrevenDiab$Grp_C_T == "Cas" & Data_PrevenDiab$Vieillissement_accelere == "vieillissement retarde (≤ -5)", 1, 0), na.rm = TRUE) / sum(Data_PrevenDiab$Grp_C_T == "Cas")
+## T
+Preval_late_aging_T <- sum(ifelse(Data_PrevenDiab$Grp_C_T == "Témoins" & Data_PrevenDiab$Vieillissement_accelere == "vieillissement retarde (≤ -5)", 1, 0), na.rm = TRUE) / sum(Data_PrevenDiab$Grp_C_T == "Témoins")
+
+
+```
+
+La **prévalence du vieillissement** accéléré est de ***`r round(Preval_acc_aging*100, 2)`*** %.
+
+  + Pour les cas, elle est de ***`r round(Preval_acc_aging_C*100, 2)`*** %.
+  + Et pour les témoins, de ***`r round(Preval_acc_aging_T*100, 2)`*** %.   
+
+La **prévalence du vieillissement** retardé est de ***`r round(Preval_late_aging*100, 2)`*** %.  
+
+  + Pour les cas, elle est de ***`r round(Preval_late_aging_C*100, 2)`*** %.
+  + Et pour les témoins, de ***`r round(Preval_late_aging_T*100, 2)`*** %.   
+
+
+
+# Détecter les outliers de manière automatique
+
+On a extrait dans un tableur excell (***Outliers_population_cas-temoins_144.xlsx***) les outliers, soient les valeurs abérrantes.   
+Sur les variables quantitatives *(ex : IMC)*, on regarde si les valeurs sont supérieures ou inférieures à un seuil donné : 
+
++ 3 fois supérieur au quantile 75% (=Q3) 
++ <ins>OU</ins> 3 fois inférieur au quantile 25% (=Q1).  
+
+Cette sélection permet donc d'obtenir les identifiants des individus ayant une ou plusieurs valeurs abérrantes, ainsi que le détail de ces valeurs.    
+
+
+```{r Outliers pls var, echo = TRUE, message = FALSE, warning = FALSE, include = FALSE}
+
+# cols_numeric <- c("FC_repos", "PdsCorporel", "PdsCorporel_V1", "IMC", "tr_taille", "tr_hanche", "tr_cou", "GraisseCorp", "MasseMuscu%", "MasseOsseuse",
+#                   "AU_YOJD", "AU_YOJG", "AU_YFJD", "AU_YFJG", "Res_FM", "ResAGEreader_U", "Gly_jeun", "HbA1C_value")
+
+
+outvar <- c("FC_repos", "PdsCorporel", "PdsCorporel_V1", "IMC", "tr_taille", "tr_hanche", "tr_cou", "GraisseCorp", "MasseMuscu%", "MasseOsseuse",
+            "AU_YOJD", "AU_YOJG", "AU_YFJD", "AU_YFJG", "Res_FM", "ResAGEreader_U", "Gly_jeun", "HbA1C_value")
+outlier_time_IQR <- 3
+all_phenotype_data <- Data_PrevenDiab
+
+ID <- c("Patient")
+cols <- c(ID, outvar)
+QC_PHENO <- subset(all_phenotype_data, select = cols)
+# row.names(QC_PHENO) <- make.names(QC_PHENO$Patient, unique=TRUE)
+QC_outlier <- QC_PHENO
+
+for (ivar in outvar){
+  # ivar <- "FC_repos"
+  df.IQR <- stats::IQR(all_phenotype_data[[ivar]], na.rm = TRUE)
+  LowerInnerFence <- stats::quantile(all_phenotype_data[[ivar]], na.rm = TRUE)[2] - outlier_time_IQR * df.IQR
+  UpperInnerFence <- stats::quantile(all_phenotype_data[[ivar]], na.rm = TRUE)[4] + outlier_time_IQR * df.IQR
+  index <- match(ivar, colnames(QC_PHENO))
+  data.table::setnames(QC_PHENO, ivar, paste("outlier", ivar, sep = "_"))
+
+  QC_outlier[[index]] <- ifelse(QC_PHENO[[index]] <= LowerInnerFence | QC_PHENO[[index]] >= UpperInnerFence, QC_PHENO[[index]], NA)
+  # QC_no_outlier <- QC_PHENO[QC_PHENO[,index] > LowerInnerFence & QC_PHENO[,index] < UpperInnerFence, ]
+  # QC_outlier <- QC_PHENO[QC_PHENO[,index] <= LowerInnerFence | QC_PHENO[,index] >= UpperInnerFence, ]
+}
+
+QC_outlier$NAs <- rowSums(ifelse(is.na(QC_outlier), 1, 0))
+QC_outlier <- QC_outlier[QC_outlier$NAs < length(outvar), ]
+
+#write excell
+# options("openxlsx.borderColour" = "#4F80BD")
+write.xlsx(QC_outlier, file = here("outputs/Outliers_population_cas-temoins_144.xlsx"), colNames = TRUE)
+
+
+```
+
+# Chargement base pour scores :
+
+```{r save DataPrevendiab post descriptives analysis, echo = FALSE, message = FALSE, warning = FALSE, include=FALSE}
+
+# paste0("Data_PrevenDiab_merged_post01_", Sys.Date(), ".tsv")
+
+data.table::fwrite(Data_PrevenDiab, paste(outputs_directory, paste0("Data_PrevenDiab_merged_post01_sous-groupe_", Sys.Date(), ".tsv"), sep = "/"), sep = "\t", na = NA, quote = TRUE)
+
+```
+
+
+# Remarques
